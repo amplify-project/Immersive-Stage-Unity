@@ -1,0 +1,67 @@
+# =========================
+# Unity generated folders
+# =========================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+
+# Asset meta cache (Unity 2020+)
+[Aa]ssets/**/[Cc]ache/
+[Aa]ssets/**/[Cc]ache.meta
+
+# =========================
+# Visual Studio / Rider / VSCode
+# =========================
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+# =========================
+# Unity artifacts
+# =========================
+*.unitypackage
+*.apk
+*.aab
+*.ipa
+*.app
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# =========================
+# Crash reports / logs
+# =========================
+sysinfo.txt
+crashlytics-build.properties
+
+# =========================
+# Addressables / StreamingAssets (opcional)
+# =========================
+# Descomenta si los generas automáticamente
+# [Aa]ssets/[Aa]ddressableAssetsData/*/*.bin*
+# [Aa]ssets/[Ss]treamingAssets/*
+
+# =========================
+# OS / Editor noise
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# CI / Cloud Build
+# =========================
+*.log
