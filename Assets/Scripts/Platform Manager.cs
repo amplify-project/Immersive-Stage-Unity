@@ -30,6 +30,10 @@ public class PlatformManager : MonoBehaviour
     public float maxFOV = 90f;
     public bool gyroEnabled = false;
 
+    [Header("Sync Settings")]
+    public double syncThreshold = 0.1;
+    public double maxDrift = 0.5;
+
     [Header("Error Logging")]
     public bool isLoggingActive;
     public GameObject logTextPrefab;
@@ -59,7 +63,6 @@ public class PlatformManager : MonoBehaviour
             if (source != null)
             {
                 audioSources.Add(source);
-
                 string filename = source.gameObject.name + ".wav";
                 audioPaths.Add(filename);
             }
@@ -83,7 +86,9 @@ public class PlatformManager : MonoBehaviour
             if (standardCamera != null) standardCamera.gameObject.SetActive(false);
             videoPath = "Pisa2Concert360_4k.mp4";
             videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, videoPath);
-        } else {
+        }
+        else
+        {
             if (xrOrigin != null) xrOrigin.SetActive(false);
             if (proxyCamera != null) proxyCamera.gameObject.SetActive(false);
             if (standardCamera != null) standardCamera.gameObject.SetActive(true);
@@ -117,7 +122,7 @@ public class PlatformManager : MonoBehaviour
                 {
                     filePath = "file://" + "/storage/emulated/0/Music/" + audioPaths[i];
                 }
-#else           
+#else
                 filePath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, audioPaths[i]);
 #endif
                 using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(filePath, AudioType.WAV))
@@ -137,7 +142,7 @@ public class PlatformManager : MonoBehaviour
                             audioSources[i].spatialize = true;
                             audioSources[i].spatialBlend = 1f;
                             audioSources[i].volume = 1f;
-                            Debug.Log("Audio loaded and playing.");
+                            Debug.Log("Audio loaded: " + filePath);
                         }
                         else
                         {
@@ -146,7 +151,7 @@ public class PlatformManager : MonoBehaviour
                     }
                     else
                     {
-                        Debug.LogError("Failed to decode audio file: " + filePath);
+                        Debug.LogError("Failed to load audio file: " + filePath);
                     }
                 }
             }
@@ -193,13 +198,13 @@ public class PlatformManager : MonoBehaviour
 
     void OnDestroy()
     {
-
         if (videoPlayer != null)
         {
             videoPlayer.prepareCompleted -= InitialiseVideo;
 
             if (videoPlayer.targetTexture != null)
                 videoPlayer.targetTexture.Release();
+
             videoPlayer.Stop();
             videoPlayer.url = null;
         }
@@ -207,10 +212,12 @@ public class PlatformManager : MonoBehaviour
 
     void InitialiseVideo(VideoPlayer source)
     {
-        double startDspTime = AudioSettings.dspTime + 1.0;
+        // Damos 500ms de margen para que audio y vídeo arranquen juntos
+        double startDspTime = AudioSettings.dspTime + 0.5;
 
-        source.timeReference = UnityEngine.Video.VideoTimeReference.ExternalTime;
-        source.externalReferenceTime = AudioSettings.dspTime;
+        source.timeReference = VideoTimeReference.ExternalTime;
+        // Apuntamos el tiempo externo al momento futuro de arranque
+        source.externalReferenceTime = startDspTime - AudioSettings.dspTime;
         source.Play();
 
         foreach (AudioSource src in audioSources)
@@ -224,12 +231,56 @@ public class PlatformManager : MonoBehaviour
         if (videoPlayer.isPlaying)
         {
             videoPlayer.externalReferenceTime = AudioSettings.dspTime;
+            CheckAudioVideoSync();
         }
 
         if (isTablet)
         {
             UpdateTouch();
             UpdateAudioFocus();
+        }
+    }
+
+    void CheckAudioVideoSync()
+    {
+        if (audioSources.Count == 0 || audioSources[0].clip == null) return;
+
+        AudioSource reference = audioSources[0];
+        if (!reference.isPlaying) return;
+
+        double audioTime = (double)reference.timeSamples / reference.clip.frequency;
+        double videoTime = videoPlayer.time;
+        double drift = videoTime - audioTime;
+
+        if (System.Math.Abs(drift) > maxDrift)
+        {
+            // Desfase grande: resync duro, reposicionamos el audio al tiempo del vídeo
+            Debug.LogWarning($"Hard resync: drift = {drift:F3}s");
+
+            foreach (AudioSource src in audioSources)
+            {
+                if (src.clip == null) continue;
+                src.Stop();
+                src.timeSamples = Mathf.Clamp(
+                    (int)(videoTime * src.clip.frequency),
+                    0,
+                    src.clip.samples - 1
+                );
+                src.Play();
+            }
+
+            videoPlayer.externalReferenceTime = AudioSettings.dspTime;
+        }
+        else if (System.Math.Abs(drift) > syncThreshold)
+        {
+            // Desfase suave: ajustamos la velocidad del vídeo ligeramente
+            Debug.Log($"Soft resync: drift = {drift:F3}s");
+            videoPlayer.playbackSpeed = drift > 0 ? 0.98f : 1.02f;
+        }
+        else
+        {
+            // Dentro del umbral: velocidad normal
+            videoPlayer.playbackSpeed = 1.0f;
         }
     }
 
@@ -249,13 +300,9 @@ public class PlatformManager : MonoBehaviour
             Vector2 pos = t.position.ReadValue();
 
             if (pos.x > Screen.width / 2)
-            {
                 Zoom(-1);
-            }
             else
-            {
                 Zoom(1);
-            }
         }
     }
 
@@ -266,14 +313,12 @@ public class PlatformManager : MonoBehaviour
             minFOV,
             maxFOV
         );
-
         standardCamera.fieldOfView = newFOV;
     }
 
     void UpdateGyroRotation()
     {
         Quaternion deviceRotation = Input.gyro.attitude;
-
         deviceRotation = new Quaternion(deviceRotation.x, deviceRotation.y, -deviceRotation.z, -deviceRotation.w);
 
         Quaternion baseRotation = Quaternion.identity;
@@ -309,7 +354,6 @@ public class PlatformManager : MonoBehaviour
         {
             Vector3 toSource = (src.transform.position - listenerPos).normalized;
             float angle = Vector3.Angle(forward, toSource);
-
             float boost = Mathf.Clamp01((coneAngle - angle) / coneAngle);
             src.volume = Mathf.Clamp(1 * boost, sliderValue, 1.0f);
         }
@@ -332,7 +376,11 @@ public class PlatformManager : MonoBehaviour
         float scroll = Mouse.current.scroll.ReadValue().y;
         if (Mathf.Abs(scroll) > 0.01f)
         {
-            float newFOV = Mathf.Clamp(standardCamera.fieldOfView - scroll * zoomSpeed * Time.deltaTime, minFOV, maxFOV);
+            float newFOV = Mathf.Clamp(
+                standardCamera.fieldOfView - scroll * zoomSpeed * Time.deltaTime,
+                minFOV,
+                maxFOV
+            );
             standardCamera.fieldOfView = newFOV;
         }
     }
