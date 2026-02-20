@@ -33,6 +33,7 @@ public class PlatformManager : MonoBehaviour
     [Header("Sync Settings")]
     public double syncThreshold = 0.1;
     public double maxDrift = 0.5;
+    public double oculusAudioLatencyOffset = 0.08;
 
     [Header("Error Logging")]
     public bool isLoggingActive;
@@ -212,25 +213,25 @@ public class PlatformManager : MonoBehaviour
 
     void InitialiseVideo(VideoPlayer source)
     {
-        // Damos 500ms de margen para que audio y vídeo arranquen juntos
         double startDspTime = AudioSettings.dspTime + 0.5;
 
         source.timeReference = VideoTimeReference.ExternalTime;
-        // Apuntamos el tiempo externo al momento futuro de arranque
         source.externalReferenceTime = startDspTime - AudioSettings.dspTime;
         source.Play();
 
         foreach (AudioSource src in audioSources)
-        {
             src.PlayScheduled(startDspTime);
-        }
     }
 
     void Update()
     {
         if (videoPlayer.isPlaying)
         {
-            videoPlayer.externalReferenceTime = AudioSettings.dspTime;
+            // En Oculus retrasamos el vídeo el tiempo que tarda el audio en salir por hardware
+            // En tablet/PC no aplicamos offset
+            double offset = isTablet ? 0.0 : oculusAudioLatencyOffset;
+            videoPlayer.externalReferenceTime = AudioSettings.dspTime - offset;
+
             CheckAudioVideoSync();
         }
 
@@ -254,7 +255,7 @@ public class PlatformManager : MonoBehaviour
 
         if (System.Math.Abs(drift) > maxDrift)
         {
-            // Desfase grande: resync duro, reposicionamos el audio al tiempo del vídeo
+            // Desfase grande: reposicionamos el audio al tiempo del vídeo
             Debug.LogWarning($"Hard resync: drift = {drift:F3}s");
 
             foreach (AudioSource src in audioSources)
@@ -273,14 +274,23 @@ public class PlatformManager : MonoBehaviour
         }
         else if (System.Math.Abs(drift) > syncThreshold)
         {
-            // Desfase suave: ajustamos la velocidad del vídeo ligeramente
+            // Desfase suave: ajustamos el pitch del audio levemente
+            // drift > 0: vídeo va por delante → aceleramos audio
+            // drift < 0: audio va por delante → frenamos audio
             Debug.Log($"Soft resync: drift = {drift:F3}s");
-            videoPlayer.playbackSpeed = drift > 0 ? 0.98f : 1.02f;
+
+            float pitchCorrection = drift > 0 ? 1.02f : 0.98f;
+            foreach (AudioSource src in audioSources)
+                src.pitch = pitchCorrection;
+
+            videoPlayer.playbackSpeed = 1.0f;
         }
         else
         {
-            // Dentro del umbral: velocidad normal
+            // Dentro del umbral: todo normal
             videoPlayer.playbackSpeed = 1.0f;
+            foreach (AudioSource src in audioSources)
+                src.pitch = 1.0f;
         }
     }
 
