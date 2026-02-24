@@ -5,9 +5,13 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Video;
+using TMPro;
+
 
 public class MediaSyncController : MonoBehaviour
 {
+    [SerializeField] private TextMeshProUGUI debugTimerText;
+
     [Header("Video (.mp4)")]
     [SerializeField] private VideoPlayer videoPlayer;
 
@@ -27,9 +31,11 @@ public class MediaSyncController : MonoBehaviour
 
     private CancellationTokenSource _cts;
 
+    private double _startDsp;
+    private bool _started;
+
     private async void Start()
     {
-
         Debug.Log("persistentDataPath: " + Application.persistentDataPath);
 
         _cts = new CancellationTokenSource();
@@ -59,8 +65,6 @@ public class MediaSyncController : MonoBehaviour
         videoPlayer.prepareCompleted += OnVideoPrepared;
         videoPlayer.errorReceived += OnVideoError;
         videoPlayer.Prepare();
-
-        
     }
 
     private void OnDestroy()
@@ -90,9 +94,9 @@ public class MediaSyncController : MonoBehaviour
 
     private void OnVideoPrepared(VideoPlayer vp)
     {
-        double startDsp = AudioSettings.dspTime + startDelaySeconds;
+        _startDsp = AudioSettings.dspTime + startDelaySeconds;
 
-        vp.externalReferenceTime = startDsp;
+        vp.externalReferenceTime = _startDsp;
         vp.Play();
 
         foreach (var a in audioSources)
@@ -103,10 +107,12 @@ public class MediaSyncController : MonoBehaviour
             a.spatialize = true;
             a.spatialBlend = 1f;
 
-            a.PlayScheduled(startDsp);
+            a.PlayScheduled(_startDsp);
         }
 
-        Debug.Log($"[MediaSync] Started at DSP={startDsp:F3}");
+        _started = true;
+
+        Debug.Log($"[MediaSync] Started at DSP={_startDsp:F3}");
     }
 
     private void OnVideoError(VideoPlayer vp, string message)
@@ -120,6 +126,35 @@ public class MediaSyncController : MonoBehaviour
         if (videoPlayer == null || !videoPlayer.isPlaying) return;
 
         videoPlayer.externalReferenceTime = AudioSettings.dspTime;
+
+        // -------------------------
+        //   TIMER
+        //--------------------------
+
+         if (!_started || debugTimerText == null) return;
+
+        double dspNow = AudioSettings.dspTime;
+        double masterTime = dspNow - _startDsp;
+        if (masterTime < 0) masterTime = 0;
+
+        double videoTime = videoPlayer.time;
+
+        double audioTime = 0;
+        if (audioSources != null && audioSources.Length > 0 &&
+            audioSources[0] != null && audioSources[0].clip != null)
+        {
+            audioTime = (double)audioSources[0].timeSamples /
+                    audioSources[0].clip.frequency;
+        }
+
+        double drift = videoTime - audioTime;
+
+        debugTimerText.text =
+            $"DSP: {masterTime:F3}s\n" +
+            $"Video: {videoTime:F3}s\n" +
+            $"Audio: {audioTime:F3}s\n" +
+            $"Drift(V-A): {drift * 1000:F1} ms";
+
     }
 
     // -----------------------
