@@ -1,28 +1,33 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Video;
 using TMPro;
-
+using UnityEngine.InputSystem;
 
 public class MediaSyncController : MonoBehaviour
 {
-    [SerializeField] private TextMeshProUGUI debugTimerText;
+    [Header("Debug Console (TMP)")]
+    [SerializeField] private TextMeshProUGUI debugConsoleText;
+    [SerializeField] private GameObject debugConsoleRoot; // Canvas/Panel a mostrar/ocultar
+    [SerializeField] private float logEverySeconds = 0.5f;
+    [SerializeField] private int maxLogLines = 25;
+
+    [Header("XR Interaction Toolkit - Toggle Console")]
+    [Tooltip("Asigna aquí una InputActionReference tipo Button (RightHand Primary Button = A).")]
+    [SerializeField] private InputActionReference toggleConsoleAction;
+    [SerializeField] private float toggleDebounceSeconds = 0.25f;
 
     [Header("Video (.mp4)")]
     [SerializeField] private VideoPlayer videoPlayer;
-
-    [Tooltip("Ruta RELATIVA dentro de persistentDataPath. Ej: Media/concert360.mp4")]
     [SerializeField] private string persistentVideoRelativePath = "Media/video.mp4";
 
     [Header("Audio stems (.mp3)")]
-    [Tooltip("AudioSources posicionados en la escena (mismo orden que las rutas).")]
     [SerializeField] private AudioSource[] audioSources;
-
-    [Tooltip("Rutas RELATIVAS dentro de persistentDataPath, una por AudioSource. Ej: Audio/stem1.mp3")]
     [SerializeField] private string[] persistentAudioRelativePaths;
 
     [Header("Sync")]
@@ -33,38 +38,61 @@ public class MediaSyncController : MonoBehaviour
 
     private double _startDsp;
     private bool _started;
+    private double _nextLogDsp;
+
+    private readonly StringBuilder _logBuilder = new StringBuilder();
+    private bool _consoleVisible = true;
+    private float _nextToggleTime;
 
     private async void Start()
     {
-        Debug.Log("persistentDataPath: " + Application.persistentDataPath);
-
         _cts = new CancellationTokenSource();
+
+        // Si no asignas root, usamos el GameObject del TMP
+        if (debugConsoleRoot == null && debugConsoleText != null)
+            debugConsoleRoot = debugConsoleText.gameObject;
+
+        SetConsoleVisible(_consoleVisible);
+
+        HookToggleAction();
 
         if (videoPlayer == null)
         {
-            Debug.LogError("[MediaSync] VideoPlayer no asignado.");
+            AddLog("ERROR: VideoPlayer no asignado.");
             return;
         }
 
-        // 1) Video desde persistentDataPath (.mp4)
+        string videoAbs = GetPersistentAbsolutePath(persistentVideoRelativePath);
         string videoUrl = GetPersistentFileUrl(persistentVideoRelativePath);
 
-        if (!File.Exists(GetPersistentAbsolutePath(persistentVideoRelativePath)))
+        AddLog("persistentDataPath: " + Application.persistentDataPath);
+        AddLog("Video abs: " + videoAbs);
+        AddLog("Video exists: " + File.Exists(videoAbs));
+
+        if (!File.Exists(videoAbs))
         {
-            Debug.LogError("[MediaSync] Video.mp4 no encontrado en persistentDataPath");
+            AddLog("ERROR: Video no encontrado en persistentDataPath.");
             return;
         }
 
-        // 2) Cargar audios .mp3 desde persistentDataPath
         await LoadMp3AudioAsync(_cts.Token);
 
-        // 3) Configurar VideoPlayer
         ConfigureVideoPlayer(videoUrl);
 
-        // 4) Preparar y arrancar sincronizado
         videoPlayer.prepareCompleted += OnVideoPrepared;
         videoPlayer.errorReceived += OnVideoError;
         videoPlayer.Prepare();
+    }
+
+    private void OnEnable()
+    {
+        // Por si el objeto se habilita/deshabilita
+        HookToggleAction();
+    }
+
+    private void OnDisable()
+    {
+        UnhookToggleAction();
     }
 
     private void OnDestroy()
@@ -75,10 +103,15 @@ public class MediaSyncController : MonoBehaviour
             videoPlayer.errorReceived -= OnVideoError;
         }
 
+        UnhookToggleAction();
+
         _cts?.Cancel();
         _cts?.Dispose();
     }
 
+    // -----------------------
+    // Video setup
+    // -----------------------
     private void ConfigureVideoPlayer(string url)
     {
         videoPlayer.source = VideoSource.Url;
@@ -89,6 +122,7 @@ public class MediaSyncController : MonoBehaviour
         videoPlayer.isLooping = true;
         videoPlayer.skipOnDrop = true;
 
+        // Tu config original: seguir reloj externo
         videoPlayer.timeReference = VideoTimeReference.ExternalTime;
     }
 
@@ -111,13 +145,14 @@ public class MediaSyncController : MonoBehaviour
         }
 
         _started = true;
+        _nextLogDsp = AudioSettings.dspTime;
 
-        Debug.Log($"[MediaSync] Started at DSP={_startDsp:F3}");
+        AddLog($"Started at DSP={_startDsp:F6}");
     }
 
     private void OnVideoError(VideoPlayer vp, string message)
     {
-        Debug.LogError($"[MediaSync] Video error: {message}");
+        AddLog("VIDEO ERROR: " + message);
     }
 
     private void Update()
@@ -127,13 +162,12 @@ public class MediaSyncController : MonoBehaviour
 
         videoPlayer.externalReferenceTime = AudioSettings.dspTime;
 
-        // -------------------------
-        //   TIMER
-        //--------------------------
-
-         if (!_started || debugTimerText == null) return;
+        if (!_started) return;
 
         double dspNow = AudioSettings.dspTime;
+        if (dspNow < _nextLogDsp) return;
+        _nextLogDsp = dspNow + logEverySeconds;
+
         double masterTime = dspNow - _startDsp;
         if (masterTime < 0) masterTime = 0;
 
@@ -143,24 +177,86 @@ public class MediaSyncController : MonoBehaviour
         if (audioSources != null && audioSources.Length > 0 &&
             audioSources[0] != null && audioSources[0].clip != null)
         {
-            audioTime = (double)audioSources[0].timeSamples /
-                    audioSources[0].clip.frequency;
+            audioTime = (double)audioSources[0].timeSamples / audioSources[0].clip.frequency;
         }
 
         double drift = videoTime - audioTime;
 
-        debugTimerText.text =
-            $"DSP: {masterTime:F3}s\n" +
-            $"Video: {videoTime:F3}s\n" +
-            $"Audio: {audioTime:F3}s\n" +
-            $"Drift(V-A): {drift * 1000:F1} ms";
+        AddLog($"DSP:{masterTime:F3}s | V:{videoTime:F3}s | A:{audioTime:F3}s | Drift:{drift * 1000:F1}ms");
+    }
 
+    // -----------------------
+    // XRI InputAction toggle
+    // -----------------------
+    private void HookToggleAction()
+    {
+        if (toggleConsoleAction == null || toggleConsoleAction.action == null) return;
+
+        // Asegurar enabled
+        if (!toggleConsoleAction.action.enabled)
+            toggleConsoleAction.action.Enable();
+
+        // Evitar doble suscripción
+        toggleConsoleAction.action.performed -= OnToggleConsolePerformed;
+        toggleConsoleAction.action.performed += OnToggleConsolePerformed;
+    }
+
+    private void UnhookToggleAction()
+    {
+        if (toggleConsoleAction == null || toggleConsoleAction.action == null) return;
+        toggleConsoleAction.action.performed -= OnToggleConsolePerformed;
+    }
+
+    private void OnToggleConsolePerformed(InputAction.CallbackContext ctx)
+    {
+        // Debounce
+        if (Time.unscaledTime < _nextToggleTime) return;
+
+        // La acción suele ser Button; interpretamos como "pressed"
+        float v = ctx.ReadValue<float>();
+        if (v < 0.5f) return;
+
+        _consoleVisible = !_consoleVisible;
+        SetConsoleVisible(_consoleVisible);
+
+        _nextToggleTime = Time.unscaledTime + toggleDebounceSeconds;
+        AddLog($"Console {( _consoleVisible ? "ON" : "OFF" )}");
+    }
+
+    private void SetConsoleVisible(bool visible)
+    {
+        if (debugConsoleRoot != null)
+            debugConsoleRoot.SetActive(visible);
+    }
+
+    // -----------------------
+    // TMP console logging
+    // -----------------------
+    private void AddLog(string message)
+    {
+        if (debugConsoleText == null) return;
+
+        string ts = Time.unscaledTime.ToString("F2");
+        _logBuilder.AppendLine($"[{ts}] {message}");
+
+        // Limitar líneas
+        string[] lines = _logBuilder.ToString().Split('\n');
+        if (lines.Length > maxLogLines)
+        {
+            _logBuilder.Clear();
+            for (int i = lines.Length - maxLogLines; i < lines.Length; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(lines[i]))
+                    _logBuilder.AppendLine(lines[i]);
+            }
+        }
+
+        debugConsoleText.text = _logBuilder.ToString();
     }
 
     // -----------------------
     // Persistent helpers
     // -----------------------
-
     private static string GetPersistentAbsolutePath(string relativePath)
         => Path.Combine(Application.persistentDataPath, relativePath);
 
@@ -171,9 +267,8 @@ public class MediaSyncController : MonoBehaviour
     }
 
     // -----------------------
-    // Load MP3 audio only
+    // Load MP3 audio
     // -----------------------
-
     private async Task LoadMp3AudioAsync(CancellationToken ct)
     {
         int n = Mathf.Min(audioSources.Length, persistentAudioRelativePaths.Length);
@@ -188,10 +283,9 @@ public class MediaSyncController : MonoBehaviour
             if (source == null || string.IsNullOrWhiteSpace(rel)) continue;
 
             string abs = GetPersistentAbsolutePath(rel);
-
             if (!File.Exists(abs))
             {
-                Debug.LogError($"[MediaSync] MP3 no encontrado: {abs}");
+                AddLog("MP3 no encontrado: " + abs);
                 continue;
             }
 
@@ -208,11 +302,12 @@ public class MediaSyncController : MonoBehaviour
 
                 if (req.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogError($"[MediaSync] Error cargando MP3: {req.error}");
+                    AddLog("Error cargando MP3: " + req.error);
                     continue;
                 }
 
                 source.clip = DownloadHandlerAudioClip.GetContent(req);
+                AddLog("Audio cargado: " + rel);
             }
         }
     }
