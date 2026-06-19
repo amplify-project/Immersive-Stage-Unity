@@ -1,0 +1,23 @@
+{
+    "name": "Gaze.Pico",
+    "rootNamespace": "Gaze.Pico",
+    "references": [
+        "Gaze.Core",
+        "Unity.XR.PICO",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "PICO_XR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
