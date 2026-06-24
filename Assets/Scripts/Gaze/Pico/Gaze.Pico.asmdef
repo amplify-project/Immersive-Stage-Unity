@@ -4,7 +4,8 @@
     "references": [
         "Gaze.Core",
         "Unity.XR.PICO",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Android",

@@ -318,7 +318,7 @@ public static class GazeSceneSetup
             Undo.RegisterCreatedObjectUndo(canvasGO, "Gaze Setup");
             canvasGO.transform.SetParent(arrowParent, false);
             canvasGO.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            // 1 m square held 1.2 m in front of the camera; arrows sit ~20 deg
+            // 1 m square held 1.2 m in front of the camera; arrows sit ~14 deg
             // off-center. No GraphicRaycaster, images non-raycastable: the hints
             // can never block the gaze UI.
             var rect = (RectTransform)canvasGO.transform;
@@ -328,10 +328,10 @@ public static class GazeSceneSetup
             rect.localRotation = Quaternion.identity;
 
             Sprite arrowSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/DropdownArrow.psd");
-            SetObjectField(ctrl, "arrowLeft",  CreateEdgeArrow(canvasGO.transform, "Arrow_Left",  arrowSprite, new Vector2(-440f, 0f), -90f));
-            SetObjectField(ctrl, "arrowRight", CreateEdgeArrow(canvasGO.transform, "Arrow_Right", arrowSprite, new Vector2(440f, 0f), 90f));
-            SetObjectField(ctrl, "arrowUp",    CreateEdgeArrow(canvasGO.transform, "Arrow_Up",    arrowSprite, new Vector2(0f, 440f), 180f));
-            SetObjectField(ctrl, "arrowDown",  CreateEdgeArrow(canvasGO.transform, "Arrow_Down",  arrowSprite, new Vector2(0f, -440f), 0f));
+            SetObjectField(ctrl, "arrowLeft",  CreateEdgeArrow(canvasGO.transform, "Arrow_Left",  arrowSprite, new Vector2(-300f, 0f), -90f));
+            SetObjectField(ctrl, "arrowRight", CreateEdgeArrow(canvasGO.transform, "Arrow_Right", arrowSprite, new Vector2(300f, 0f), 90f));
+            SetObjectField(ctrl, "arrowUp",    CreateEdgeArrow(canvasGO.transform, "Arrow_Up",    arrowSprite, new Vector2(0f, 300f), 180f));
+            SetObjectField(ctrl, "arrowDown",  CreateEdgeArrow(canvasGO.transform, "Arrow_Down",  arrowSprite, new Vector2(0f, -300f), 0f));
         }
         else
         {
