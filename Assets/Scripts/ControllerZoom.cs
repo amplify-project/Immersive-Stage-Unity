@@ -77,7 +77,11 @@ public class ControllerZoom : MonoBehaviour
             OnZoom(-rightActivateModeAction.ReadValue<float>());
         }
 
-        UpdateAudioFocus();
+        UpdateAudioFocus();  // RE-ENABLED (old behaviour): ducks every stem except the
+        // one you face down to sliderValue (~0.1), so effectively ONE instrument is
+        // audible and the focus cone is driven by zoom (currZoom), not gaze alone. This
+        // is the version that was turned off for burying the others — kept as-is for a
+        // live test. Pending redesign: high floor (~0.7) and decouple from zoom.
     }
 
     void LateUpdate()

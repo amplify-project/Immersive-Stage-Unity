@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.SalsaSound.Concert360_1">
+
+    <application>
+        <activity
+            android:name="com.unity3d.player.UnityPlayerActivity"
+            android:theme="@style/UnityThemeSelector"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:hardwareAccelerated="false"
+            android:resizeableActivity="true"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+        </activity>
+
+        <!-- Required for PXR_MotionTracking.GetEyeBlink on PICO 4 Enterprise -->
+        <meta-data
+            android:name="pvr.app.et_tob_advance"
+            android:value="true" />
+    </application>
+
+</manifest>

@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Video;
+#if UNITY_ANDROID
 using UnityEngine.Android;
+#endif
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using TMPro;
@@ -37,6 +39,10 @@ public class PlatformManager : MonoBehaviour
 
     [Header("Audio Sources")]
     public GameObject audioSourceObject;
+
+    [Tooltip("Set by Tools > Audio > Set Up Pico Spatial Audio. When true the stems feed the Pico spatializer DRY (spatialBlend 0); when false they use Unity 3D paneo (spatialBlend 1). A plain bool, not reflection, so it survives il2cpp.")]
+    public bool usePicoSpatialAudio = false;
+
     private List<AudioSource> audioSources = new List<AudioSource>();
     private List<string> audioPaths = new List<string>();
 
@@ -49,8 +55,10 @@ public class PlatformManager : MonoBehaviour
     {
         isTablet = true;
 
+#if UNITY_ANDROID
         if (!Permission.HasUserAuthorizedPermission(Permission.ExternalStorageRead))
             Permission.RequestUserPermission(Permission.ExternalStorageRead);
+#endif
 
         foreach (Transform child in audioSourceObject.transform)
         {
@@ -66,11 +74,17 @@ public class PlatformManager : MonoBehaviour
         }
 
         string model = SystemInfo.deviceModel.ToLower();
-        if (model.Contains("quest"))
+        if (model.Contains("quest") || model.Contains("pico"))
             isTablet = false;
 
-        if (XRSettings.isDeviceActive && XRSettings.loadedDeviceName.ToLower().Contains("oculus"))
+        // Any initialized HMD runtime means headset path (PICO reports "PICO",
+        // which the original "oculus" check missed).
+        if (XRSettings.isDeviceActive)
             isTablet = false;
+
+        TogglePicoSpatialAudio(usePicoSpatialAudio);
+
+        StartCoroutine(DiagnoseAudioLevels());
 
         string videoPath;
         string mPath = Application.streamingAssetsPath;
@@ -94,6 +108,13 @@ public class PlatformManager : MonoBehaviour
         if (xrOrigin != null) xrOrigin.SetActive(false);
         if (standardCamera != null) standardCamera.gameObject.SetActive(true);
         videoPath = System.IO.Path.Combine(Application.persistentDataPath, "Pisa360_8K.mp4");
+#elif UNITY_VISIONOS
+        // Apple Vision Pro - Fully Immersive VR: always the headset path.
+        isTablet = false;
+        if (xrOrigin != null) xrOrigin.SetActive(true);
+        if (proxyCamera != null) proxyCamera.gameObject.SetActive(true);
+        if (standardCamera != null) standardCamera.gameObject.SetActive(false);
+        videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, "Pisa2Concert360_4k.mp4");
 #else
         if (xrOrigin != null) xrOrigin.SetActive(false);
         if (standardCamera != null) standardCamera.gameObject.SetActive(true);
@@ -103,23 +124,27 @@ public class PlatformManager : MonoBehaviour
 
         GameObject instance = null;
 
+        LogScreen($"[Audio] isTablet={isTablet}  sources={audioSources.Count}  spatial={usePicoSpatialAudio}  base={Application.persistentDataPath}");
+
         if (audioSources.Count == audioPaths.Count)
         {
             for (int i = 0; i < audioSources.Count; i++)
             {
-                string filePath;
+                string fsPath;
 #if UNITY_ANDROID && !UNITY_EDITOR
                 if (!isTablet)
-                {
-                    filePath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, audioPaths[i]);
-                }
+                    fsPath = System.IO.Path.Combine(Application.persistentDataPath, audioPaths[i]);
                 else
-                {
-                    filePath = "file://" + "/storage/emulated/0/Music/" + audioPaths[i];
-                }
-#else           
-                filePath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, audioPaths[i]);
+                    fsPath = System.IO.Path.Combine("/storage/emulated/0/Music/", audioPaths[i]);
+#else
+                fsPath = System.IO.Path.Combine(Application.persistentDataPath, audioPaths[i]);
 #endif
+                // Audio filenames contain spaces (e.g. "VOX ERIC.wav"). A raw
+                // "file://" + path leaves the space unescaped and UnityWebRequest
+                // fails to open it (this is why the space-free video loads but audio
+                // didn't). Uri.AbsoluteUri yields a correctly percent-encoded URL.
+                string filePath = new System.Uri(fsPath).AbsoluteUri;
+                LogScreen("[Audio] Loading: " + audioPaths[i]);
                 using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(filePath, AudioType.WAV))
                 {
                     var operation = www.SendWebRequest();
@@ -132,21 +157,47 @@ public class PlatformManager : MonoBehaviour
                         AudioClip clip = DownloadHandlerAudioClip.GetContent(www);
                         if (clip != null)
                         {
+                            audioSources[i].playOnAwake = false;
+                            audioSources[i].Stop();
                             audioSources[i].clip = clip;
                             audioSources[i].loop = true;
-                            audioSources[i].spatialize = true;
-                            audioSources[i].spatialBlend = 1f;
+                            audioSources[i].outputAudioMixerGroup = null;
+                            if (usePicoSpatialAudio)
+                            {
+                                // unity_native backend: the native Pico spatializer
+                                // plugin spatializes each source via Unity's standard
+                                // pipeline, which needs spatialize=true AND blend>0
+                                // (blend=0 bypasses the spatializer). Keep the sources in
+                                // the full-volume plateau (minDistance huge) so Unity's
+                                // own 3D rolloff doesn't duck them at the ~36 m ring
+                                // radius; Pico attenuation is None, so nothing else ducks.
+                                audioSources[i].spatialize = true;
+                                audioSources[i].spatialBlend = 1f;
+                                audioSources[i].rolloffMode = AudioRolloffMode.Linear;
+                                audioSources[i].minDistance = 1000f;
+                                audioSources[i].maxDistance = 100000f;
+                            }
+                            else
+                            {
+                                // Flat 2D mix: no spatializer, no distance attenuation,
+                                // no panning -> all 6 stems sum at full volume, equally
+                                // audible. spatialBlend=0 (was 1) so the ~36 m source
+                                // distance can't duck anything. (Pico HRTF is a separate
+                                // path; this is the "just let me hear the 6" fallback.)
+                                audioSources[i].spatialize = false;
+                                audioSources[i].spatialBlend = 0f;
+                            }
                             audioSources[i].volume = 1f;
-                            Debug.Log("Audio loaded and playing.");
+                            LogScreen("[Audio] OK (" + Mathf.RoundToInt(clip.length) + "s): " + audioPaths[i]);
                         }
                         else
                         {
-                            Debug.LogError("Failed to decode audio file: " + filePath);
+                            LogScreen("[Audio] DECODE FAIL: " + audioPaths[i]);
                         }
                     }
                     else
                     {
-                        Debug.LogError("Failed to decode audio file: " + filePath);
+                        LogScreen("[Audio] LOAD FAIL (" + www.result + " / " + www.error + "): " + audioPaths[i]);
                     }
                 }
             }
@@ -191,6 +242,88 @@ public class PlatformManager : MonoBehaviour
         videoPlayer.Prepare();
     }
 
+    /// <summary>
+    /// Logs to logcat AND to the in-headset Debug Log panel (logContentRoot), so
+    /// audio status is visible on device without adb. Open it with the "Debug Log"
+    /// gaze button.
+    /// </summary>
+    void LogScreen(string msg)
+    {
+        Debug.Log(msg);
+        if (logTextPrefab != null && logContentRoot != null)
+        {
+            GameObject go = Instantiate(logTextPrefab, logContentRoot.transform);
+            var t = go.GetComponent<TextMeshProUGUI>();
+            if (t != null)
+                t.text = msg;
+        }
+    }
+
+    void TogglePicoSpatialAudio(bool enable)
+    {
+        foreach (var ps in FindObjectsOfType<PXR_Audio_Spatializer_AudioSource>())
+            ps.enabled = enable;
+        foreach (var pl in FindObjectsOfType<PXR_Audio_Spatializer_AudioListener>())
+            pl.enabled = enable;
+        foreach (var pc in FindObjectsOfType<PXR_Audio_Spatializer_Context>())
+            pc.enabled = enable;
+    }
+
+    // DIAGNOSTIC (temporary): every second, dump per-stem play state + the RMS of the
+    // clip at the current playhead (read from the CLIP, not GetOutputData, because the
+    // PXR source zeroes the source output after submitting to the spatializer, which
+    // would make GetOutputData read 0 for everything). Also dumps the final listener
+    // mix RMS so we can tell whether the binaural render is producing any signal.
+    System.Collections.IEnumerator DiagnoseAudioLevels()
+    {
+        var wait = new WaitForSeconds(1f);
+        var mix = new float[256];
+        while (true)
+        {
+            AudioListener.GetOutputData(mix, 0);
+            float mixRms = RmsOf(mix);
+
+            AudioListener listener = FindObjectOfType<AudioListener>();
+            Vector3 lpos = listener != null ? listener.transform.position : Vector3.zero;
+            Vector3 lfwd = listener != null ? listener.transform.forward : Vector3.forward;
+            string lname = listener != null ? listener.gameObject.name : "NONE";
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[AudioLvl] listener='{lname}' mix={mixRms:F4} | ");
+            for (int i = 0; i < audioSources.Count; i++)
+            {
+                AudioSource src = audioSources[i];
+                float clipRms = -1f;
+                bool playing = src != null && src.isPlaying;
+                int t = src != null ? src.timeSamples : -1;
+                if (src != null && src.clip != null && playing)
+                {
+                    int ch = src.clip.channels;
+                    int n = 256;
+                    if (t >= 0 && t + n < src.clip.samples)
+                    {
+                        var buf = new float[n * ch];
+                        src.clip.GetData(buf, t);
+                        clipRms = RmsOf(buf);
+                    }
+                }
+                string nm = src != null ? src.gameObject.name : "null";
+                float dist = src != null ? Vector3.Distance(lpos, src.transform.position) : -1f;
+                float ang  = src != null ? Vector3.Angle(lfwd, src.transform.position - lpos) : -1f;
+                sb.Append($"{nm}[d={dist:F1} ang={ang:F0} clipRms={clipRms:F3}] ");
+            }
+            LogScreen(sb.ToString());
+            yield return wait;
+        }
+    }
+
+    static float RmsOf(float[] a)
+    {
+        float s = 0f;
+        for (int i = 0; i < a.Length; i++) s += a[i] * a[i];
+        return a.Length > 0 ? Mathf.Sqrt(s / a.Length) : 0f;
+    }
+
     void OnDestroy()
     {
 
@@ -207,15 +340,15 @@ public class PlatformManager : MonoBehaviour
 
     void InitialiseVideo(VideoPlayer source)
     {
-        double startDspTime = AudioSettings.dspTime + 1.0;
-
         source.timeReference = UnityEngine.Video.VideoTimeReference.ExternalTime;
         source.externalReferenceTime = AudioSettings.dspTime;
         source.Play();
 
+        LogScreen("[Audio] Video PREPARED. audioTrackCount=" + source.audioTrackCount);
+
         foreach (AudioSource src in audioSources)
         {
-            src.PlayScheduled(startDspTime);
+            src.Play();
         }
     }
 
