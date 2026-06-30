@@ -34,6 +34,9 @@ namespace Gaze.Pico
         [Tooltip("Gaze gain: amplifies the off-axis eye angle so peripheral targets are reachable with a small, comfortable eye movement (locked-in users who can't add head rotation). 1 = raw gaze, 1.5-2 = reach the edges with a gentle glance.")]
         [SerializeField, Range(1f, 3f)] float gazeGain = 1.6f;
 
+        [Tooltip("Uncheck to force head-gaze on all platforms (ignores eye tracking). Useful for testing or when eye tracking is unavailable.")]
+        [SerializeField] bool useEyeTracking = true;
+
         bool  m_TrackingStarted;
         Ray   m_LastValidRay;
         bool  m_HasValidRay;
@@ -43,6 +46,11 @@ namespace Gaze.Pico
 
         void Start()
         {
+            if (!useEyeTracking)
+            {
+                Debug.Log("[PicoEyeGazeProvider] Eye tracking disabled - using head gaze.");
+                return;
+            }
             Debug.Log("[PicoEyeGazeProvider] Starting...");
             if (!Permission.HasUserAuthorizedPermission(EyeTrackingPermission))
             {

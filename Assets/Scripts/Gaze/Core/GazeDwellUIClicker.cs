@@ -74,6 +74,21 @@ namespace Gaze.Core
             s_Providers.RemoveAll(p => p.provider == provider);
         }
 
+        /// <summary>
+        /// Returns the first valid ray from registered platform providers (no head-gaze fallback).
+        /// Used by GazeWorldRaycaster to share the same gaze source without coupling to this instance.
+        /// </summary>
+        public static bool TryGetRegisteredProviderRay(out Ray ray)
+        {
+            for (int i = 0; i < s_Providers.Count; i++)
+            {
+                if (s_Providers[i].provider.TryGetGazeRay(out ray))
+                    return true;
+            }
+            ray = default;
+            return false;
+        }
+
         /// <summary>Clicks the currently hovered element immediately (e.g. visionOS pinch shortcut).</summary>
         public void TriggerImmediateClick()
         {

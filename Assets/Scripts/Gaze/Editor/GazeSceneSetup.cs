@@ -4,6 +4,7 @@ using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Video;
 using UnityEngine.UI;
 using Gaze.Core;
 
@@ -399,5 +400,257 @@ public static class GazeSceneSetup
         }
         prop.objectReferenceValue = value;
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // =========================================================================
+    // Closeup Windows Setup
+    // =========================================================================
+
+    static readonly Color[] s_MusicianColors =
+    {
+        new Color(0.9f, 0.4f, 0.1f),  // orange
+        new Color(0.8f, 0.2f, 0.2f),  // red
+        new Color(0.2f, 0.75f, 0.2f), // green
+        new Color(0.2f, 0.3f, 0.9f),  // blue
+        new Color(0.85f, 0.75f, 0.1f),// yellow
+        new Color(0.7f, 0.2f, 0.8f),  // purple
+    };
+
+    [MenuItem("Tools/Gaze/Set Up Closeup Windows")]
+    public static void SetupCloseupWindows()
+    {
+        PlatformManager pm = UnityEngine.Object.FindFirstObjectByType<PlatformManager>(FindObjectsInactive.Include);
+        if (pm == null)
+        {
+            Debug.LogError("[GazeSceneSetup] No PlatformManager found. Open SampleScene first.");
+            return;
+        }
+        if (pm.audioSourceObject == null)
+        {
+            Debug.LogError("[GazeSceneSetup] PlatformManager.audioSourceObject is null - assign it in the Inspector.");
+            return;
+        }
+
+        // 1. Ensure the Musician layer exists in the project
+        int musicianLayer = EnsureLayer("Musician");
+
+        // 2. Add GazeWorldRaycaster to the existing Gaze Interaction rig
+        GameObject rigGO = GameObject.Find("Gaze Interaction");
+        if (rigGO == null)
+        {
+            Debug.LogError("[GazeSceneSetup] 'Gaze Interaction' not found. Run 'Set Up Gaze Interaction In Open Scene' first.");
+            return;
+        }
+
+        GazeWorldRaycaster raycaster = rigGO.GetComponent<GazeWorldRaycaster>();
+        if (raycaster == null)
+        {
+            raycaster = Undo.AddComponent<GazeWorldRaycaster>(rigGO);
+            Debug.Log("[GazeSceneSetup] Added GazeWorldRaycaster to 'Gaze Interaction'.");
+        }
+
+        var rso = new SerializedObject(raycaster);
+        rso.FindProperty("dwellSeconds").floatValue = 1f;
+        rso.FindProperty("rayDistance").floatValue = 80f;
+        rso.FindProperty("musicianLayerMask").intValue = 1 << musicianLayer;
+        rso.ApplyModifiedPropertiesWithoutUndo();
+
+        HeadGazeProvider headGaze = rigGO.GetComponent<HeadGazeProvider>();
+        if (headGaze != null)
+            SetObjectField(raycaster, "headGazeFallback", headGaze);
+
+        // 3. Wire PlayPauseButton on the existing menu button (icon sprites must be assigned manually)
+        GameObject menuGO = GameObject.Find("UI_GazeMenu");
+        if (menuGO != null)
+        {
+            Transform ppTransform = menuGO.transform.Find("Button_PlayPause");
+            if (ppTransform != null)
+            {
+                PlayPauseButton ppb = ppTransform.GetComponent<PlayPauseButton>();
+                if (ppb == null)
+                    ppb = Undo.AddComponent<PlayPauseButton>(ppTransform.gameObject);
+                SetObjectField(ppb, "videoPlayer", pm.videoPlayer);
+                Debug.Log("[GazeSceneSetup] PlayPauseButton added to Button_PlayPause. Assign playSprite/pauseSprite + icon Image in the Inspector.");
+            }
+            else
+            {
+                Debug.LogWarning("[GazeSceneSetup] Button_PlayPause not found in UI_GazeMenu. Run 'Set Up Gaze Interaction' first.");
+            }
+        }
+
+        // 4. Configure each musician AudioSource, cycling through available clips
+        string[] videoFilenames =
+        {
+            "close_up_hands_from_piano_play.mp4",
+            "close_up_hands_from_saxophone.mp4",
+            "close_up_hands_from_Drums_play.mp4",
+        };
+
+        int count = 0;
+        foreach (Transform child in pm.audioSourceObject.transform)
+        {
+            if (child.GetComponent<AudioSource>() == null) continue;
+            string filename = videoFilenames[count % videoFilenames.Length];
+            SetupMusicianCloseup(child.gameObject, musicianLayer, count, filename);
+            count++;
+        }
+
+        EditorSceneManager.MarkSceneDirty(pm.gameObject.scene);
+        Debug.Log($"[GazeSceneSetup] Closeup windows setup complete: {count} musicians configured on layer '{LayerMask.LayerToName(musicianLayer)}'.");
+    }
+
+    static void SetupMusicianCloseup(GameObject musicianGO, int musicianLayer, int idx, string videoFilename)
+    {
+        Undo.RecordObject(musicianGO, "Closeup Setup");
+        musicianGO.layer = musicianLayer;
+
+        SphereCollider col = musicianGO.GetComponent<SphereCollider>();
+        if (col == null)
+        {
+            col = Undo.AddComponent<SphereCollider>(musicianGO);
+            col.isTrigger = true;
+            col.radius = 4f;
+        }
+
+        MusicianCloseupScreen screen = musicianGO.GetComponent<MusicianCloseupScreen>();
+        if (screen == null)
+            screen = Undo.AddComponent<MusicianCloseupScreen>(musicianGO);
+
+        Transform screenRoot = musicianGO.transform.Find("CloseupScreen");
+        if (screenRoot == null)
+            screenRoot = CreateCloseupScreenGO(musicianGO.transform, musicianGO.name, idx);
+
+        // Always update position and scale so re-running setup applies the latest values
+        Undo.RecordObject(screenRoot, "Closeup Setup");
+        screenRoot.localPosition = new Vector3(-5f, 0f, 0f);
+        var rt = screenRoot as RectTransform ?? screenRoot.GetComponent<RectTransform>();
+        if (rt != null) rt.localScale = Vector3.one * 0.005f;
+
+        CanvasGroup cg = screenRoot.GetComponent<CanvasGroup>();
+        RawImage rawImg = screenRoot.GetComponentInChildren<RawImage>(true);
+        if (rawImg != null) rawImg.color = Color.clear;
+
+        // Ensure VideoPlayer exists on CloseupScreen (may be missing from a pre-VideoPlayer setup run)
+        VideoPlayer vp = screenRoot.GetComponent<VideoPlayer>();
+        if (vp == null)
+        {
+            vp = Undo.AddComponent<VideoPlayer>(screenRoot.gameObject);
+            vp.playOnAwake = false;
+            vp.isLooping = true;
+            vp.renderMode = VideoRenderMode.RenderTexture;
+        }
+
+        SetObjectField(screen, "screenRoot", screenRoot.gameObject);
+        SetObjectField(screen, "canvasGroup", cg);
+        SetObjectField(screen, "videoDisplay", rawImg);
+        SetObjectField(screen, "videoPlayer", vp);
+
+        var so = new SerializedObject(screen);
+        so.FindProperty("colliderRadius").floatValue = 4f;
+        so.FindProperty("videoFilename").stringValue = videoFilename;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        Debug.Log($"[GazeSceneSetup] '{musicianGO.name}' → {videoFilename}");
+    }
+
+    static Transform CreateCloseupScreenGO(Transform parent, string musicianName, int idx)
+    {
+        var screenGO = new GameObject("CloseupScreen");
+        Undo.RegisterCreatedObjectUndo(screenGO, "Closeup Setup");
+        screenGO.transform.SetParent(parent, false);
+        screenGO.transform.localPosition = new Vector3(-5f, 0f, 0f);
+        screenGO.transform.localRotation = Quaternion.identity;
+
+        // Canvas (World Space): ~2.4 m wide × 1.5 m tall at 0.003 scale
+        var canvas = screenGO.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        screenGO.AddComponent<GraphicRaycaster>();
+
+        var rt = (RectTransform)screenGO.transform;
+        rt.sizeDelta = new Vector2(800f, 500f);
+        rt.localScale = Vector3.one * 0.003f;
+
+        // VideoPlayer (renders to RenderTexture created at runtime in MusicianCloseupScreen)
+        var vp = screenGO.AddComponent<VideoPlayer>();
+        vp.playOnAwake = false;
+        vp.isLooping = true;
+        vp.renderMode = VideoRenderMode.RenderTexture;
+
+        var cg = screenGO.AddComponent<CanvasGroup>();
+        cg.alpha = 0f;
+
+        // Dark panel background
+        var panelGO = new GameObject("Panel", typeof(Image));
+        Undo.RegisterCreatedObjectUndo(panelGO, "Closeup Setup");
+        panelGO.transform.SetParent(screenGO.transform, false);
+        var panelRT = (RectTransform)panelGO.transform;
+        panelRT.anchorMin = Vector2.zero;
+        panelRT.anchorMax = Vector2.one;
+        panelRT.offsetMin = Vector2.zero;
+        panelRT.offsetMax = Vector2.zero;
+        var panelImg = panelGO.GetComponent<Image>();
+        panelImg.color = new Color(0.05f, 0.05f, 0.05f, 0.9f);
+        panelImg.raycastTarget = false;
+
+        // Video / placeholder area (colored by musician index until real clips exist)
+        var videoGO = new GameObject("VideoDisplay", typeof(RawImage));
+        Undo.RegisterCreatedObjectUndo(videoGO, "Closeup Setup");
+        videoGO.transform.SetParent(panelGO.transform, false);
+        var videoRT = (RectTransform)videoGO.transform;
+        videoRT.anchorMin = new Vector2(0.05f, 0.16f);
+        videoRT.anchorMax = new Vector2(0.95f, 0.96f);
+        videoRT.offsetMin = Vector2.zero;
+        videoRT.offsetMax = Vector2.zero;
+        var rawImg = videoGO.GetComponent<RawImage>();
+        rawImg.color = Color.clear;
+        rawImg.raycastTarget = false;
+
+        // Musician name label
+        var labelGO = new GameObject("Label", typeof(Text));
+        Undo.RegisterCreatedObjectUndo(labelGO, "Closeup Setup");
+        labelGO.transform.SetParent(panelGO.transform, false);
+        var labelRT = (RectTransform)labelGO.transform;
+        labelRT.anchorMin = new Vector2(0.05f, 0.02f);
+        labelRT.anchorMax = new Vector2(0.95f, 0.16f);
+        labelRT.offsetMin = Vector2.zero;
+        labelRT.offsetMax = Vector2.zero;
+        var label = labelGO.GetComponent<Text>();
+        label.text = musicianName.ToUpper();
+        label.fontSize = 40;
+        label.fontStyle = FontStyle.Bold;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.color = Color.white;
+        label.raycastTarget = false;
+
+        return screenGO.transform;
+    }
+
+    /// <summary>
+    /// Finds the "layerName" layer or creates it in the first free user slot (8–31).
+    /// Returns the layer index; returns 0 (Default) and logs an error if no slot is free.
+    /// </summary>
+    static int EnsureLayer(string layerName)
+    {
+        for (int i = 0; i < 32; i++)
+        {
+            if (LayerMask.LayerToName(i) == layerName)
+                return i;
+        }
+
+        var tagManager = new SerializedObject(
+            AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+        SerializedProperty layers = tagManager.FindProperty("layers");
+        for (int i = 8; i < layers.arraySize; i++)
+        {
+            SerializedProperty slot = layers.GetArrayElementAtIndex(i);
+            if (slot.stringValue != "") continue;
+            slot.stringValue = layerName;
+            tagManager.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log($"[GazeSceneSetup] Created layer '{layerName}' at index {i}.");
+            return i;
+        }
+
+        Debug.LogError($"[GazeSceneSetup] No empty layer slot found for '{layerName}'. Delete an unused layer and re-run.");
+        return 0;
     }
 }
