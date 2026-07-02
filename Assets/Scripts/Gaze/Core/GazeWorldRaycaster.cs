@@ -27,9 +27,17 @@ namespace Gaze.Core
         [Tooltip("Optional reticle shown at the hit point while gazing at a musician.")]
         [SerializeField] MusicianReticle musicianReticle;
 
+        /// <summary>
+        /// Fires true when a musician closeup screen opens (dwell completed) and
+        /// false when focus is lost. Consumed by ControllerZoom (default assembly)
+        /// to drive the zoom, so Gaze.Core stays free of any zoom dependency.
+        /// </summary>
+        public static event System.Action<bool> MusicianFocusChanged;
+
         MusicianCloseupScreen m_Current;
         float m_DwellTimer;
         Camera m_Camera;
+        bool m_ZoomActive;
 
         void Awake()
         {
@@ -70,7 +78,10 @@ namespace Gaze.Core
             if (hit != m_Current)
             {
                 if (m_Current != null)
+                {
                     m_Current.Hide();
+                    SetZoomFocus(false);
+                }
                 m_Current = hit;
                 m_DwellTimer = 0f;
             }
@@ -80,7 +91,10 @@ namespace Gaze.Core
 
             m_DwellTimer += Time.unscaledDeltaTime;
             if (m_DwellTimer >= dwellSeconds)
+            {
                 m_Current.Show();
+                SetZoomFocus(true);
+            }
         }
 
         void LoseFocus()
@@ -92,6 +106,17 @@ namespace Gaze.Core
             }
             m_DwellTimer = 0f;
             musicianReticle?.Hide();
+            SetZoomFocus(false);
+        }
+
+        // Only broadcasts on state change, so switching musicians (Hide old ->
+        // dwell -> Show new) briefly drops focus, letting the zoom ease back out
+        // and in rather than jumping between two focused positions.
+        void SetZoomFocus(bool active)
+        {
+            if (m_ZoomActive == active) return;
+            m_ZoomActive = active;
+            MusicianFocusChanged?.Invoke(active);
         }
 
         Camera ResolveCamera()

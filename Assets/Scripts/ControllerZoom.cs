@@ -1,9 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Unity.XR.CoreUtils.Bindings;
-using UnityEngine.InputSystem;
-using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
-using TMPro;
 
 public class ControllerZoom : MonoBehaviour
 {   
@@ -16,9 +12,13 @@ public class ControllerZoom : MonoBehaviour
     public float maxFOV = 120f;
     public float currZoom = 30f;
 
-    [Header("Controller Actions")]
-    public InputActionReference m_LeftActivateValue;
-    public InputActionReference m_RightActivateValue;
+    [Header("Gaze-driven zoom")]
+    [Tooltip("Wide 'resting' FOV used while no musician is focused. Higher = further out.")]
+    public float defaultFOV = 90f;
+    [Tooltip("FOV to ease into while a musician closeup is open. Lower = closer in.")]
+    public float focusedFOV = 30f;
+    [Tooltip("Higher = snappier zoom transition (exponential smoothing factor).")]
+    public float zoomLerpSpeed = 3f;
 
     [Header("Arm Control")]
     public Transform armRoot;
@@ -33,27 +33,35 @@ public class ControllerZoom : MonoBehaviour
     public GameObject audioSourceObject;
     private List<AudioSource> audioSources = new List<AudioSource>();
 
-    private InputAction leftActivateModeAction;
-    private InputAction rightActivateModeAction;
-
     private Quaternion lastCameraRot;
     private bool firstFrame = true;
 
+    // Target the zoom eases toward. Flipped by the gaze system, not the controllers.
+    private float targetFOV;
+
+    void OnEnable()
+    {
+        Gaze.Core.GazeWorldRaycaster.MusicianFocusChanged += OnMusicianFocusChanged;
+    }
+
+    void OnDisable()
+    {
+        Gaze.Core.GazeWorldRaycaster.MusicianFocusChanged -= OnMusicianFocusChanged;
+    }
+
+    // Gaze opened/closed a musician closeup: pick the zoom target, Update() eases to it.
+    void OnMusicianFocusChanged(bool focused)
+    {
+        targetFOV = focused ? focusedFOV : defaultFOV;
+    }
+
     void Start()
     {
-        leftActivateModeAction = GetInputAction(m_LeftActivateValue);
-        rightActivateModeAction = GetInputAction(m_RightActivateValue);
+        // Start wide; zoom is now driven entirely by musician gaze focus.
+        currZoom = defaultFOV;
+        targetFOV = defaultFOV;
+        ApplyZoom();
 
-        if (leftActivateModeAction != null)
-            leftActivateModeAction.Enable();
-
-        if (rightActivateModeAction != null)
-            rightActivateModeAction.Enable();
-
-        float fovNormalized = Mathf.InverseLerp(maxFOV, minFOV, currZoom);
-        float distance = Mathf.Lerp(0f, maxDistance, fovNormalized);
-        proxyCamera.transform.localPosition = Vector3.forward * distance;
-        
         foreach (Transform child in audioSourceObject.transform)
         {
             AudioSource source = child.GetComponent<AudioSource>();
@@ -67,14 +75,12 @@ public class ControllerZoom : MonoBehaviour
 
     void Update()
     {
-        if (leftActivateModeAction != null && leftActivateModeAction.ReadValue<float>() > 0.1f)
+        if (Mathf.Abs(currZoom - targetFOV) > 0.01f)
         {
-            OnZoom(leftActivateModeAction.ReadValue<float>());
-        }
-
-        if (rightActivateModeAction != null && rightActivateModeAction.ReadValue<float>() > 0.1f)
-        {
-            OnZoom(-rightActivateModeAction.ReadValue<float>());
+            // Frame-rate independent exponential smoothing toward the target FOV.
+            float t = 1f - Mathf.Exp(-zoomLerpSpeed * Time.deltaTime);
+            currZoom = Mathf.Lerp(currZoom, targetFOV, t);
+            ApplyZoom();
         }
 
         UpdateAudioFocus();  // RE-ENABLED (old behaviour): ducks every stem except the
@@ -99,14 +105,9 @@ public class ControllerZoom : MonoBehaviour
         Debug.Log("----------------------------------------------------------");
     }
 
-    void OnZoom(float triggerValue)
+    // Maps the current FOV to the proxy camera arm distance (min FOV = closest in).
+    void ApplyZoom()
     {
-        currZoom = Mathf.Clamp(
-            currZoom + triggerValue * zoomSpeed * Time.deltaTime,
-            minFOV,
-            maxFOV
-        );
-
         float fovNormalized = Mathf.InverseLerp(maxFOV, minFOV, currZoom);
         float distance = Mathf.Lerp(0f, maxDistance, fovNormalized);
         proxyCamera.transform.localPosition = Vector3.forward * distance;
@@ -128,12 +129,5 @@ public class ControllerZoom : MonoBehaviour
             float boost = Mathf.Clamp01((currZoom - angle) / currZoom);
             src.volume = Mathf.Clamp(1 * boost, sliderValue, 1.0f);
         }
-    }
-
-    static InputAction GetInputAction(InputActionReference actionReference)
-    {
-#pragma warning disable IDE0031
-        return actionReference != null ? actionReference.action : null;
-#pragma warning restore IDE0031
     }
 }
