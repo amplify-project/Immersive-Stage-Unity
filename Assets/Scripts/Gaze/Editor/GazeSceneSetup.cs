@@ -459,6 +459,26 @@ public static class GazeSceneSetup
         if (headGaze != null)
             SetObjectField(raycaster, "headGazeFallback", headGaze);
 
+        // Must be a scene instance, not a reference to the prefab asset: a
+        // component living only in the Project never gets Awake()/rendering.
+        Transform reticleT = rigGO.transform.Find("Musician Reticle");
+        MusicianReticle musicianReticle;
+        if (reticleT == null)
+        {
+            var reticleGO = new GameObject("Musician Reticle");
+            Undo.RegisterCreatedObjectUndo(reticleGO, "Closeup Setup");
+            reticleGO.transform.SetParent(rigGO.transform, false);
+            musicianReticle = reticleGO.AddComponent<MusicianReticle>();
+            Debug.Log("[GazeSceneSetup] Created 'Musician Reticle' scene instance.");
+        }
+        else
+        {
+            musicianReticle = reticleT.GetComponent<MusicianReticle>();
+            if (musicianReticle == null)
+                musicianReticle = Undo.AddComponent<MusicianReticle>(reticleT.gameObject);
+        }
+        SetObjectField(raycaster, "musicianReticle", musicianReticle);
+
         // 3. Wire PlayPauseButton on the existing menu button (icon sprites must be assigned manually)
         GameObject menuGO = GameObject.Find("UI_GazeMenu");
         if (menuGO != null)
