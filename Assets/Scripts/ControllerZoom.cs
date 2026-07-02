@@ -17,8 +17,9 @@ public class ControllerZoom : MonoBehaviour
     public float defaultFOV = 90f;
     [Tooltip("FOV to ease into while a musician closeup is open. Lower = closer in.")]
     public float focusedFOV = 30f;
-    [Tooltip("Higher = snappier zoom transition (exponential smoothing factor).")]
-    public float zoomLerpSpeed = 3f;
+    [Tooltip("Zoom transition speed (exponential smoothing). Lower = slower, gentler zoom. ~1 ≈ 2s, ~3 ≈ 0.8s.")]
+    [Range(0.3f, 5f)]
+    public float zoomLerpSpeed = 1f;
 
     [Header("Arm Control")]
     public Transform armRoot;
