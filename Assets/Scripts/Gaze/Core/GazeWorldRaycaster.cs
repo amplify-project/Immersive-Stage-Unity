@@ -24,8 +24,12 @@ namespace Gaze.Core
         [Tooltip("Head-gaze fallback for platforms without eye tracking (Quest, Editor). Auto-added if empty.")]
         [SerializeField] HeadGazeProvider headGazeFallback;
 
+        [Tooltip("Optional reticle shown at the hit point while gazing at a musician.")]
+        [SerializeField] MusicianReticle musicianReticle;
+
         MusicianCloseupScreen m_Current;
         float m_DwellTimer;
+        Camera m_Camera;
 
         void Awake()
         {
@@ -46,8 +50,22 @@ namespace Gaze.Core
             }
 
             MusicianCloseupScreen hit = null;
+            Vector3 hitPoint = Vector3.zero;
             if (Physics.Raycast(ray, out RaycastHit info, rayDistance, musicianLayerMask, QueryTriggerInteraction.Collide))
+            {
                 hit = info.collider.GetComponentInParent<MusicianCloseupScreen>();
+                hitPoint = info.point;
+            }
+
+            if (musicianReticle != null)
+            {
+                if (hit != null) musicianReticle.SetState(hitPoint, ResolveCamera());
+                else             musicianReticle.Hide();
+            }
+
+            if (hit != null)
+                Debug.Log($"[GazeWorldRaycaster] hit={hit.name} point={hitPoint} reticle={(musicianReticle != null ? "assigned" : "NULL")}");
+            Debug.DrawRay(ray.origin, ray.direction * rayDistance, hit != null ? Color.green : Color.red);
 
             if (hit != m_Current)
             {
@@ -73,6 +91,14 @@ namespace Gaze.Core
                 m_Current = null;
             }
             m_DwellTimer = 0f;
+            musicianReticle?.Hide();
+        }
+
+        Camera ResolveCamera()
+        {
+            if (m_Camera != null && m_Camera.isActiveAndEnabled) return m_Camera;
+            m_Camera = Camera.main ?? (Camera.allCamerasCount > 0 ? Camera.allCameras[0] : null);
+            return m_Camera;
         }
 
         bool TryGetGazeRay(out Ray ray)
