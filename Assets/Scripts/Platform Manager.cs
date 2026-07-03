@@ -95,26 +95,26 @@ public class PlatformManager : MonoBehaviour
             if (xrOrigin != null) xrOrigin.SetActive(true);
             if (proxyCamera != null) proxyCamera.gameObject.SetActive(true);
             if (standardCamera != null) standardCamera.gameObject.SetActive(false);
-            videoPath = "Pisa2Concert360_4k.mp4";
-            videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, videoPath);
+            string vname = ResolveVideoFile(Application.persistentDataPath, "Pisa2Concert360_4k.mp4");
+            videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, vname);
         } else {
             if (xrOrigin != null) xrOrigin.SetActive(false);
             if (proxyCamera != null) proxyCamera.gameObject.SetActive(false);
             if (standardCamera != null) standardCamera.gameObject.SetActive(true);
-            videoPath = "Pisa2Concert360.mp4";
-            videoPath = "file://" + "/storage/emulated/0/Movies/" + videoPath;
+            string moviesDir = "/storage/emulated/0/Movies/";
+            videoPath = "file://" + moviesDir + ResolveVideoFile(moviesDir, "Pisa2Concert360.mp4");
         }
 #elif UNITY_IOS
         if (xrOrigin != null) xrOrigin.SetActive(false);
         if (standardCamera != null) standardCamera.gameObject.SetActive(true);
-        videoPath = System.IO.Path.Combine(Application.persistentDataPath, "Pisa360_8K.mp4");
+        videoPath = System.IO.Path.Combine(Application.persistentDataPath, ResolveVideoFile(Application.persistentDataPath, "Pisa360_8K.mp4"));
 #elif UNITY_VISIONOS
         // Apple Vision Pro - Fully Immersive VR: always the headset path.
         isTablet = false;
         if (xrOrigin != null) xrOrigin.SetActive(true);
         if (proxyCamera != null) proxyCamera.gameObject.SetActive(true);
         if (standardCamera != null) standardCamera.gameObject.SetActive(false);
-        videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, "Pisa2Concert360_4k.mp4");
+        videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, ResolveVideoFile(Application.persistentDataPath, "Pisa2Concert360_4k.mp4"));
 #else
         if (xrOrigin != null) xrOrigin.SetActive(false);
         if (standardCamera != null) standardCamera.gameObject.SetActive(true);
@@ -216,19 +216,13 @@ public class PlatformManager : MonoBehaviour
             instance.GetComponent<TextMeshProUGUI>().text = "Loading video: " + videoPath;
         }
 
-        using (UnityWebRequest request = UnityWebRequest.Get(videoPath))
-        {
-            var operation = request.SendWebRequest();
-            while (!operation.isDone)
-                await Task.Yield();
-
-            if (request.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError("Video load failed: " + request.error);
-                Debug.LogError("Video load failed: " + videoPath);
-                return;
-            }
-        }
+        // We used to pre-fetch the whole file with UnityWebRequest.Get(videoPath) just to
+        // verify it existed. That buffers the ENTIRE file into RAM before playback: fine
+        // for the 264 MB Pisa clip, fatal for the 16 GB AMPLIFY clip -> it OOM-kills the
+        // app on a 6 GB Quest (that was the "crash on loading the new video"). VideoPlayer
+        // streams the URL itself and surfaces problems via errorReceived, so the pre-fetch
+        // was both useless and dangerous. Removed; just subscribe to error reporting.
+        videoPlayer.errorReceived += (vp, msg) => LogScreen("[Video] ERROR: " + msg);
 
         videoPlayer.source = VideoSource.Url;
         videoPlayer.isLooping = true;
@@ -240,6 +234,48 @@ public class PlatformManager : MonoBehaviour
 
         videoPlayer.prepareCompleted += InitialiseVideo;
         videoPlayer.Prepare();
+    }
+
+    /// <summary>
+    /// Picks the sphere video from <paramref name="dir"/>: the AMPLIFY test clip if
+    /// present, otherwise the first file whose name starts with "Pisa", otherwise the
+    /// historical <paramref name="fallbackDefault"/>. Data-driven so dropping a new
+    /// AMPLIFY_TEST_2606_CAM360.mp4 into the folder switches the video with no rebuild.
+    /// Only .mp4 is considered.
+    /// </summary>
+    string ResolveVideoFile(string dir, string fallbackDefault)
+    {
+        try
+        {
+            string[] mp4s = System.IO.Directory.GetFiles(dir, "*.mp4");
+
+            foreach (string f in mp4s)
+            {
+                if (System.IO.Path.GetFileNameWithoutExtension(f)
+                        .Equals("AMPLIFY_TEST_2606_CAM360", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    LogScreen("[Video] using AMPLIFY: " + System.IO.Path.GetFileName(f));
+                    return System.IO.Path.GetFileName(f);
+                }
+            }
+
+            foreach (string f in mp4s)
+            {
+                if (System.IO.Path.GetFileName(f)
+                        .StartsWith("Pisa", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    LogScreen("[Video] AMPLIFY missing, using Pisa: " + System.IO.Path.GetFileName(f));
+                    return System.IO.Path.GetFileName(f);
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            LogScreen("[Video] dir scan failed (" + dir + "): " + e.Message);
+        }
+
+        LogScreen("[Video] no match, using default: " + fallbackDefault);
+        return fallbackDefault;
     }
 
     /// <summary>

@@ -39,8 +39,7 @@ namespace Gaze.Core
         // initializers here are only the fallback if no settings component exists.
         float fadeInDuration = 0.6f;
         float fadeOutDuration = 0.3f;
-        float openDistance = 3f;
-        float heightOffset = 0f;
+        Vector3 viewOffset = new Vector3(0f, 0f, 3f);
         float openScale = 0.005f;
         float startScaleFactor = 0.15f;
 
@@ -120,8 +119,7 @@ namespace Gaze.Core
 
             fadeInDuration = s.fadeInDuration;
             fadeOutDuration = s.fadeOutDuration;
-            openDistance = s.openDistance;
-            heightOffset = s.heightOffset;
+            viewOffset = s.viewOffset;
             openScale = s.openScale;
             startScaleFactor = s.startScaleFactor;
         }
@@ -136,8 +134,13 @@ namespace Gaze.Core
 
             Vector3 flatFwd = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized;
             if (flatFwd.sqrMagnitude < 0.0001f) flatFwd = cam.transform.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, flatFwd);
 
-            screenRoot.transform.position = cam.transform.position + flatFwd * openDistance + Vector3.up * heightOffset;
+            // viewOffset is relative to your view: X = right, Y = world-up, Z = forward.
+            screenRoot.transform.position = cam.transform.position
+                + right * viewOffset.x
+                + Vector3.up * viewOffset.y
+                + flatFwd * viewOffset.z;
             screenRoot.transform.rotation = Quaternion.LookRotation(flatFwd, Vector3.up);
         }
 

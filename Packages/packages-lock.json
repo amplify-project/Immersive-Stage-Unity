@@ -159,8 +159,8 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.arfoundation": {
-      "version": "6.3.4",
-      "depth": 1,
+      "version": "6.2.0",
+      "depth": 0,
       "source": "registry",
       "dependencies": {
         "com.unity.ugui": "2.0.0",
@@ -294,17 +294,6 @@
         "com.unity.xr.core-utils": "2.3.0"
       },
       "hash": "c9fbd66810bd514c0e543abd801da0f2e9f83a63"
-    },
-    "com.unity.xr.visionos": {
-      "version": "3.1.5",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {
-        "com.unity.xr.core-utils": "2.3.0",
-        "com.unity.xr.management": "4.5.0",
-        "com.unity.xr.arfoundation": "6.3.4"
-      },
-      "url": "https://packages.unity.com"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",

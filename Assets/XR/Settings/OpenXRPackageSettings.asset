@@ -35,7 +35,6 @@ MonoBehaviour:
   m_Name: PICOG3ControllerProfile Android
   m_EditorClassIdentifier: Unity.XR.PICO::UnityEngine.XR.OpenXR.Features.Interactions.PICOG3ControllerProfile
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICOG3 Touch Controller Profile
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.input.PICOG3touch
@@ -168,7 +167,6 @@ MonoBehaviour:
   m_Name: DisplayRefreshRateFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.DisplayRefreshRateFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: OpenXR Display Refresh Rate
   version: 3.4.0
   featureIdInternal: com.pico.openxr.feature.refreshrate
@@ -191,7 +189,6 @@ MonoBehaviour:
   m_Name: PICO4UltraControllerProfile Android
   m_EditorClassIdentifier: Unity.XR.PICO::UnityEngine.XR.OpenXR.Features.Interactions.PICO4UltraControllerProfile
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO4 Ultra Touch Controller Profile
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.input.PICO4Ultratouch
@@ -258,7 +255,6 @@ MonoBehaviour:
   m_Name: OpenXRExtensions Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.OpenXRExtensions
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO OpenXR Features
   version: 3.4.0
   featureIdInternal: com.unity.openxr.pico.features
@@ -475,7 +471,6 @@ MonoBehaviour:
   m_Name: PICONeo3ControllerProfile Android
   m_EditorClassIdentifier: Unity.XR.PICO::UnityEngine.XR.OpenXR.Features.Interactions.PICONeo3ControllerProfile
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO Neo3 Touch Controller Profile
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.input.PICONeo3touch
@@ -567,7 +562,6 @@ MonoBehaviour:
   m_Name: PICO4ControllerProfile Android
   m_EditorClassIdentifier: Unity.XR.PICO::UnityEngine.XR.OpenXR.Features.Interactions.PICO4ControllerProfile
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO4 Touch Controller Profile
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.input.PICO4touch
@@ -656,7 +650,6 @@ MonoBehaviour:
   m_Name: BodyTrackingFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.BodyTrackingFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO Body Tracking
   version: 3.4.0
   featureIdInternal: com.pico.openxr.feature.PICO_BodyTracking
@@ -1248,7 +1241,6 @@ MonoBehaviour:
   m_Name: PassthroughFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PassthroughFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: OpenXR Passthrough
   version: 3.4.0
   featureIdInternal: com.pico.openxr.feature.passthrough
@@ -1365,6 +1357,7 @@ MonoBehaviour:
   features:
   - {fileID: 9039954715707421884}
   - {fileID: -7349926892915294884}
+  - {fileID: -7308109639466586169}
   - {fileID: -2402630214408262169}
   - {fileID: -6121271877732613880}
   - {fileID: -8000997598222710656}
@@ -1404,11 +1397,24 @@ MonoBehaviour:
   - {fileID: -824515338572727054}
   - {fileID: 7547060763672968591}
   - {fileID: 7866660927220348437}
+  - {fileID: 5797324317987518032}
+  - {fileID: -7692387265418959489}
+  - {fileID: 3944549388466158258}
+  - {fileID: -479292350878207404}
   - {fileID: 9071705630028066666}
+  - {fileID: -4503078924430932669}
+  - {fileID: -5203376145374889791}
+  - {fileID: 4180310833711771245}
+  - {fileID: 3679418836226076553}
+  - {fileID: 3626250272783924897}
+  - {fileID: 4131464672249358484}
+  - {fileID: -4671701746192570979}
+  - {fileID: -7627031827727485201}
+  - {fileID: -8928867530082168581}
   - {fileID: 8539227670001640548}
   - {fileID: -5901582635306253}
   - {fileID: -4603662951859827220}
-  customLoaderName: 
+  customLoaderName: LoaderForUnitySDK_1_1_0
   m_renderMode: 1
   m_latencyOptimization: 1
   m_autoColorSubmissionMode: 1
@@ -1945,7 +1951,6 @@ MonoBehaviour:
   m_Name: PICOSpatialMesh Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PICOSpatialMesh
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO Spatial Mesh
   version: 1.0.0
   featureIdInternal: com.pico.openxr.feature.spatialmesh
@@ -1991,7 +1996,6 @@ MonoBehaviour:
   m_Name: PICOSpatialAnchor Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PICOSpatialAnchor
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO Spatial Anchor
   version: 1.0.0
   featureIdInternal: com.pico.openxr.feature.spatialanchor
@@ -2037,7 +2041,6 @@ MonoBehaviour:
   m_Name: FoveationFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::FoveationFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: OpenXR Foveation
   version: 3.4.0
   featureIdInternal: com.pico.openxr.feature.foveation
@@ -2061,7 +2064,6 @@ MonoBehaviour:
   m_Name: PICOFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PICOFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO XR Support
   version: 3.4.0
   featureIdInternal: com.unity.openxr.feature.pico
@@ -2108,7 +2110,6 @@ MonoBehaviour:
   m_Name: PICOSceneCapture Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PICOSceneCapture
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: PICO Scene Capture
   version: 1.0.0
   featureIdInternal: com.pico.openxr.feature.scenecapture
@@ -2381,7 +2382,6 @@ MonoBehaviour:
   m_Name: LayerSecureContentFeature Android
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.LayerSecureContentFeature
   m_enabled: 1
-  <failedInitialization>k__BackingField: 0
   nameUi: OpenXR Composition Layer Secure Content
   version: 3.4.0
   featureIdInternal: com.pico.openxr.feature.LayerSecureContent

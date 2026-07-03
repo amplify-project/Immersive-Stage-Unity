@@ -20,10 +20,8 @@ namespace Gaze.Core
         public float fadeOutDuration = 0.3f;
 
         [Header("Placement / size")]
-        [Tooltip("Meters in front of the camera where the window opens.")]
-        public float openDistance = 3f;
-        [Tooltip("Vertical offset from eye height, meters.")]
-        public float heightOffset = 0f;
+        [Tooltip("Where the window opens, relative to your view (meters): X = right(+)/left(-), Y = up(+)/down(-), Z = forward(+)/back(-).")]
+        public Vector3 viewOffset = new Vector3(0f, 0f, 3f);
         [Tooltip("Final world scale of the canvas when fully open. Higher = bigger window.")]
         public float openScale = 0.005f;
         [Tooltip("Starting scale as a fraction of openScale (window grows from this to full).")]

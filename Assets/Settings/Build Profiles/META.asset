@@ -19,9 +19,7 @@ MonoBehaviour:
   m_PlatformBuildProfile:
     rid: 8446136300618907949
   m_OverrideGlobalSceneList: 1
-  m_Scenes:
-  - m_enabled: 1
-    m_path: Assets/Scenes/SampleScene.unity
+  m_Scenes: []
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:
     m_Settings:
@@ -170,6 +168,14 @@ MonoBehaviour:
     - line: '|   bundleVersion: 9.2.0'
     - line: '|   preloadedAssets:'
     - line: '|   - {instanceID: 0}'
+    - line: '|   - {fileID: -8196854396901781169, guid: 1a4c68ca72a83449f938d669337cb305,
+        type: 2}'
+    - line: '|   - {fileID: 11400000, guid: bfa1182bd221b4ca89619141f66f1260, type:
+        2}'
+    - line: '|   - {fileID: -96246732860517567, guid: a9a6963505ddf7f4d886008c6dc86122,
+        type: 2}'
+    - line: '|   - {fileID: 11400000, guid: 5dcc2603f77432c4b8f783205c89bc27, type:
+        2}'
     - line: '|   metroInputSource: 0'
     - line: '|   wsaTransparentSwapchain: 0'
     - line: '|   m_HolographicPauseOnTrackingLoss: 1'
@@ -914,7 +920,7 @@ MonoBehaviour:
     - line: '|   webWasm2023: 0'
     - line: '|   webEnableSubmoduleStrippingCompatibility: 0'
     - line: '|   scriptingDefineSymbols:'
-    - line: '|     Android: USE_INPUT_SYSTEM_POSE_CONTROL;UNITY_POST_PROCESSING_STACK_V2;USE_STICK_CONTROL_THUMBSTICKS;STEAMAUDIO_ENABLED;PICO_XR'
+    - line: '|     Android: USE_INPUT_SYSTEM_POSE_CONTROL;UNITY_POST_PROCESSING_STACK_V2;USE_STICK_CONTROL_THUMBSTICKS;STEAMAUDIO_ENABLED;PICO_XR;PICO_OPENXR_SDK'
     - line: '|     CloudRendering: UNITY_POST_PROCESSING_STACK_V2'
     - line: '|     EmbeddedLinux: UNITY_POST_PROCESSING_STACK_V2'
     - line: '|     GameCoreXboxOne: UNITY_POST_PROCESSING_STACK_V2'
