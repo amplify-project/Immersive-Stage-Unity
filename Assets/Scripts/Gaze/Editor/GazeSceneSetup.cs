@@ -434,6 +434,14 @@ public static class GazeSceneSetup
         // 1. Ensure the Musician layer exists in the project
         int musicianLayer = EnsureLayer("Musician");
 
+        // 1b. Central closeup settings on the audio-source root so all musicians
+        // share one growth/size/placement tuning point (MusicianCloseupScreen reads it).
+        if (pm.audioSourceObject.GetComponent<CloseupScreenSettings>() == null)
+        {
+            Undo.AddComponent<CloseupScreenSettings>(pm.audioSourceObject);
+            Debug.Log($"[GazeSceneSetup] Added CloseupScreenSettings to '{pm.audioSourceObject.name}' (global closeup tuning).");
+        }
+
         // 2. Add GazeWorldRaycaster to the existing Gaze Interaction rig
         GameObject rigGO = GameObject.Find("Gaze Interaction");
         if (rigGO == null)
@@ -478,6 +486,15 @@ public static class GazeSceneSetup
                 musicianReticle = Undo.AddComponent<MusicianReticle>(reticleT.gameObject);
         }
         SetObjectField(raycaster, "musicianReticle", musicianReticle);
+
+        // 2b. Gaze-driven audio isolation: focused musician stays full, others duck.
+        MusicianAudioFocus audioFocus = rigGO.GetComponent<MusicianAudioFocus>();
+        if (audioFocus == null)
+        {
+            audioFocus = Undo.AddComponent<MusicianAudioFocus>(rigGO);
+            Debug.Log("[GazeSceneSetup] Added MusicianAudioFocus to 'Gaze Interaction'.");
+        }
+        SetObjectField(audioFocus, "audioSourceRoot", pm.audioSourceObject);
 
         // 3. Wire PlayPauseButton on the existing menu button (icon sprites must be assigned manually)
         GameObject menuGO = GameObject.Find("UI_GazeMenu");

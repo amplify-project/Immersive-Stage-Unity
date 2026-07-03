@@ -1,139 +1,36 @@
 using UnityEngine;
-using System.Collections.Generic;
-using Unity.XR.CoreUtils.Bindings;
-using UnityEngine.InputSystem;
-using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
-using TMPro;
 
+/// <summary>
+/// No-zoom variant for the feature_noZoom_CloseUp_AisleSound branch.
+///
+/// Zoom is intentionally removed here: neither the controllers nor gaze move the
+/// view in/out. The proxy (render) camera is pinned to the arm origin so you see
+/// the 360 video from head height with no zoom offset, and the arm just tracks
+/// head yaw so you can look around. Audio isolation is handled separately by
+/// <see cref="Gaze.Core.MusicianAudioFocus"/>.
+///
+/// The class name is kept so the existing scene component keeps its reference.
+/// </summary>
 public class ControllerZoom : MonoBehaviour
-{   
-    [Header("Camera")]
+{
+    [Header("Camera / Arm")]
+    [Tooltip("The head-tracked XR camera whose rotation the arm follows.")]
     public Camera vrCamera;
-    public Camera mainCamera;
+    [Tooltip("The render camera on the arm. Pinned to the arm origin (no zoom).")]
     public Camera proxyCamera;
-    public float zoomSpeed = 1.0f;
-    public float minFOV = 30f;
-    public float maxFOV = 120f;
-    public float currZoom = 30f;
-
-    [Header("Controller Actions")]
-    public InputActionReference m_LeftActivateValue;
-    public InputActionReference m_RightActivateValue;
-
-    [Header("Arm Control")]
+    [Tooltip("Arm root rotated to match head yaw so you can look around.")]
     public Transform armRoot;
-    public float maxDistance = 25f;
-    
-    [Header("Error Logging")]
-    public bool isLoggingActive;
-    public GameObject logTextPrefab;
-    public GameObject logContentRoot;
-
-    [Header("Audio Sources")]
-    public GameObject audioSourceObject;
-    private List<AudioSource> audioSources = new List<AudioSource>();
-
-    private InputAction leftActivateModeAction;
-    private InputAction rightActivateModeAction;
-
-    private Quaternion lastCameraRot;
-    private bool firstFrame = true;
 
     void Start()
     {
-        leftActivateModeAction = GetInputAction(m_LeftActivateValue);
-        rightActivateModeAction = GetInputAction(m_RightActivateValue);
-
-        if (leftActivateModeAction != null)
-            leftActivateModeAction.Enable();
-
-        if (rightActivateModeAction != null)
-            rightActivateModeAction.Enable();
-
-        float fovNormalized = Mathf.InverseLerp(maxFOV, minFOV, currZoom);
-        float distance = Mathf.Lerp(0f, maxDistance, fovNormalized);
-        proxyCamera.transform.localPosition = Vector3.forward * distance;
-        
-        foreach (Transform child in audioSourceObject.transform)
-        {
-            AudioSource source = child.GetComponent<AudioSource>();
-
-            if (source != null)
-            {
-                audioSources.Add(source);
-            }
-        }
-    }
-
-    void Update()
-    {
-        if (leftActivateModeAction != null && leftActivateModeAction.ReadValue<float>() > 0.1f)
-        {
-            OnZoom(leftActivateModeAction.ReadValue<float>());
-        }
-
-        if (rightActivateModeAction != null && rightActivateModeAction.ReadValue<float>() > 0.1f)
-        {
-            OnZoom(-rightActivateModeAction.ReadValue<float>());
-        }
-
-        UpdateAudioFocus();  // RE-ENABLED (old behaviour): ducks every stem except the
-        // one you face down to sliderValue (~0.1), so effectively ONE instrument is
-        // audible and the focus cone is driven by zoom (currZoom), not gaze alone. This
-        // is the version that was turned off for burying the others — kept as-is for a
-        // live test. Pending redesign: high floor (~0.7) and decouple from zoom.
+        // No zoom: keep the render camera at the arm origin (no forward offset).
+        if (proxyCamera != null)
+            proxyCamera.transform.localPosition = Vector3.zero;
     }
 
     void LateUpdate()
     {
-        Quaternion L = vrCamera.transform.rotation;
-
-        armRoot.transform.rotation = L;
-    }
-
-    void LogAll()
-    {
-        Debug.Log("ArmRoot     " + armRoot.rotation.eulerAngles + "   local " + armRoot.localRotation.eulerAngles);
-        Debug.Log("VRCamera    " + vrCamera.transform.rotation.eulerAngles + "   local " + vrCamera.transform.localRotation.eulerAngles);
-        Debug.Log("Proxy Camera    " + proxyCamera.transform.rotation.eulerAngles + "   local " + proxyCamera.transform.localRotation.eulerAngles);
-        Debug.Log("----------------------------------------------------------");
-    }
-
-    void OnZoom(float triggerValue)
-    {
-        currZoom = Mathf.Clamp(
-            currZoom + triggerValue * zoomSpeed * Time.deltaTime,
-            minFOV,
-            maxFOV
-        );
-
-        float fovNormalized = Mathf.InverseLerp(maxFOV, minFOV, currZoom);
-        float distance = Mathf.Lerp(0f, maxDistance, fovNormalized);
-        proxyCamera.transform.localPosition = Vector3.forward * distance;
-    }
-
-    void UpdateAudioFocus()
-    {
-        float normalized = Mathf.InverseLerp(minFOV, maxFOV, currZoom);
-        float sliderValue = Mathf.Lerp(0.1f, 1.0f, normalized);
-
-        Vector3 listenerPos = vrCamera.transform.position;
-        Vector3 forward = vrCamera.transform.forward;
-
-        foreach (AudioSource src in audioSources)
-        {
-            Vector3 toSource = (src.transform.position - listenerPos).normalized;
-            float angle = Vector3.Angle(forward, toSource);
-
-            float boost = Mathf.Clamp01((currZoom - angle) / currZoom);
-            src.volume = Mathf.Clamp(1 * boost, sliderValue, 1.0f);
-        }
-    }
-
-    static InputAction GetInputAction(InputActionReference actionReference)
-    {
-#pragma warning disable IDE0031
-        return actionReference != null ? actionReference.action : null;
-#pragma warning restore IDE0031
+        if (armRoot != null && vrCamera != null)
+            armRoot.rotation = vrCamera.transform.rotation;
     }
 }

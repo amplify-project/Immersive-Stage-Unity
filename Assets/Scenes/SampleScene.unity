@@ -203,6 +203,7 @@ GameObject:
   - component: {fileID: 20889826}
   - component: {fileID: 20889825}
   - component: {fileID: 20889828}
+  - component: {fileID: 20889829}
   m_Layer: 0
   m_Name: Gaze Interaction
   m_TagString: Untagged
@@ -279,6 +280,22 @@ MonoBehaviour:
     m_Bits: 256
   headGazeFallback: {fileID: 20889826}
   musicianReticle: {fileID: 1553112523}
+--- !u!114 &20889829
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 20889824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93ff9e7b49edcc44eac05cf088337d88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gaze.Core::Gaze.Core.MusicianAudioFocus
+  audioSourceRoot: {fileID: 1353352044}
+  focusedVolume: 1
+  duckedVolume: 0.15
+  lerpSpeed: 4
 --- !u!1 &61906105
 GameObject:
   m_ObjectHideFlags: 0
@@ -860,6 +877,55 @@ RectTransform:
   m_AnchoredPosition: {x: -2.5, y: 0.4}
   m_SizeDelta: {x: 800, y: 600}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &306493199
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 306493201}
+  - component: {fileID: 306493200}
+  m_Layer: 0
+  m_Name: InEditorMouseGaze
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &306493200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 306493199}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84fd36e08f5f8464faa552809d4fcd65, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EditorGazeTestDriver
+  gazeCamera: {fileID: 1638339651}
+  sensitivity: 0.15
+  holdRightMouse: 1
+  pitchClamp: 85
+  silencePlatformAudioFocus: 1
+--- !u!4 &306493201
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 306493199}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 29.07494, y: 0, z: 3.49855}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &308598585
 GameObject:
   m_ObjectHideFlags: 0
@@ -2287,8 +2353,6 @@ MonoBehaviour:
   screenRoot: {fileID: 633023531}
   canvasGroup: {fileID: 633023533}
   videoDisplay: {fileID: 1612997700}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 633023536}
   videoFilename: close_up_hands_from_saxophone.mp4
   videoRenderTexture: {fileID: 0}
@@ -3926,8 +3990,6 @@ MonoBehaviour:
   screenRoot: {fileID: 348961421}
   canvasGroup: {fileID: 348961423}
   videoDisplay: {fileID: 1673505111}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 348961426}
   videoFilename: close_up_hands_from_Drums_play.mp4
   videoRenderTexture: {fileID: 0}
@@ -4768,20 +4830,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ControllerZoom
   vrCamera: {fileID: 400195755}
-  mainCamera: {fileID: 1638339651}
   proxyCamera: {fileID: 211547742}
-  zoomSpeed: 50
-  minFOV: 30
-  maxFOV: 90
-  currZoom: 60
-  m_LeftActivateValue: {fileID: -4289430672226363583, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_RightActivateValue: {fileID: 7904272356298805229, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   armRoot: {fileID: 954090022}
-  maxDistance: 25
-  isLoggingActive: 1
-  logTextPrefab: {fileID: 443762254}
-  logContentRoot: {fileID: 332699427}
-  audioSourceObject: {fileID: 1353352044}
 --- !u!114 &1002609928
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5021,8 +5071,6 @@ MonoBehaviour:
   screenRoot: {fileID: 1528666016}
   canvasGroup: {fileID: 1528666018}
   videoDisplay: {fileID: 1682770021}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 1528666021}
   videoFilename: close_up_hands_from_piano_play.mp4
   videoRenderTexture: {fileID: 0}
@@ -6714,6 +6762,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1353352045}
+  - component: {fileID: 1353352046}
   m_Layer: 0
   m_Name: 360 Pisa Day Sources
   m_TagString: Untagged
@@ -6742,6 +6791,24 @@ Transform:
   - {fileID: 1506357093}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1353352046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1353352044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e4012c8f090d1244a2e23f82d7ef637, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Gaze.Core::Gaze.Core.CloseupScreenSettings
+  fadeInDuration: 2
+  fadeOutDuration: 2
+  openDistance: 3
+  heightOffset: 0
+  openScale: 0.005
+  startScaleFactor: 0.15
 --- !u!1 &1388376332
 GameObject:
   m_ObjectHideFlags: 0
@@ -7438,8 +7505,6 @@ MonoBehaviour:
   screenRoot: {fileID: 823920945}
   canvasGroup: {fileID: 823920947}
   videoDisplay: {fileID: 1058614894}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 823920950}
   videoFilename: close_up_hands_from_Drums_play.mp4
   videoRenderTexture: {fileID: 0}
@@ -8393,8 +8458,6 @@ MonoBehaviour:
   screenRoot: {fileID: 1951383538}
   canvasGroup: {fileID: 1951383540}
   videoDisplay: {fileID: 744053682}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 1951383543}
   videoFilename: close_up_hands_from_piano_play.mp4
   videoRenderTexture: {fileID: 0}
@@ -9780,8 +9843,6 @@ MonoBehaviour:
   screenRoot: {fileID: 1480649187}
   canvasGroup: {fileID: 1480649189}
   videoDisplay: {fileID: 5778679}
-  fadeInDuration: 0.6
-  fadeOutDuration: 0.3
   videoPlayer: {fileID: 1480649192}
   videoFilename: close_up_hands_from_saxophone.mp4
   videoRenderTexture: {fileID: 0}
@@ -9903,3 +9964,4 @@ SceneRoots:
   - {fileID: 20889827}
   - {fileID: 582361236}
   - {fileID: 1388376334}
+  - {fileID: 306493201}

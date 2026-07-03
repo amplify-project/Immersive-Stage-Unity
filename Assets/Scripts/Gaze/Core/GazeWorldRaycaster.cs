@@ -27,6 +27,14 @@ namespace Gaze.Core
         [Tooltip("Optional reticle shown at the hit point while gazing at a musician.")]
         [SerializeField] MusicianReticle musicianReticle;
 
+        /// <summary>
+        /// Fires the moment the gazed musician changes (before the dwell that opens
+        /// the window), passing the focused screen or null when gaze leaves. Consumed
+        /// by MusicianAudioFocus to isolate that musician's stem. Kept as an event so
+        /// Gaze.Core carries no audio dependency.
+        /// </summary>
+        public static event System.Action<MusicianCloseupScreen> MusicianGazeChanged;
+
         MusicianCloseupScreen m_Current;
         float m_DwellTimer;
         Camera m_Camera;
@@ -73,6 +81,7 @@ namespace Gaze.Core
                     m_Current.Hide();
                 m_Current = hit;
                 m_DwellTimer = 0f;
+                MusicianGazeChanged?.Invoke(m_Current);
             }
 
             if (m_Current == null || m_Current.IsShowing)
@@ -89,6 +98,7 @@ namespace Gaze.Core
             {
                 m_Current.Hide();
                 m_Current = null;
+                MusicianGazeChanged?.Invoke(null);
             }
             m_DwellTimer = 0f;
             musicianReticle?.Hide();

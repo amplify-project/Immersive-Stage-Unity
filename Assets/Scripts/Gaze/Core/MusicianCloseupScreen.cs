@@ -33,9 +33,16 @@ namespace Gaze.Core
         [Tooltip("RawImage that receives the VideoPlayer render texture (or placeholder).")]
         [SerializeField] RawImage videoDisplay;
 
-        [Header("Fade")]
-        [SerializeField] float fadeInDuration = 0.6f;
-        [SerializeField] float fadeOutDuration = 0.3f;
+        // Fade / placement / size are tuned globally on the CloseupScreenSettings
+        // component (on "360 Pisa Day Sources"), NOT per musician. These are runtime
+        // fields, not serialized: they are filled from that component in Awake. The
+        // initializers here are only the fallback if no settings component exists.
+        float fadeInDuration = 0.6f;
+        float fadeOutDuration = 0.3f;
+        float openDistance = 3f;
+        float heightOffset = 0f;
+        float openScale = 0.005f;
+        float startScaleFactor = 0.15f;
 
         [Header("Video")]
         [SerializeField] VideoPlayer videoPlayer;
@@ -55,6 +62,8 @@ namespace Gaze.Core
 
         void Awake()
         {
+            ApplyGlobalSettings();
+
             if (GetComponent<Collider>() == null)
             {
                 var col = gameObject.AddComponent<SphereCollider>();
@@ -70,17 +79,9 @@ namespace Gaze.Core
             }
         }
 
-        void LateUpdate()
-        {
-            if (!IsShowing || screenRoot == null) return;
-
-            Camera cam = ResolveCamera();
-            if (cam == null) return;
-
-            Vector3 toCam = cam.transform.position - screenRoot.transform.position;
-            if (toCam.sqrMagnitude > 0.001f)
-                screenRoot.transform.rotation = Quaternion.LookRotation(-toCam.normalized);
-        }
+        // No LateUpdate billboard on purpose: the window is anchored in front of the
+        // viewer at open time and must NOT follow the head (would be nauseating and
+        // would keep covering whatever you look at next).
 
         public void Show()
         {
@@ -90,8 +91,10 @@ namespace Gaze.Core
             if (screenRoot != null)
                 screenRoot.SetActive(true);
 
+            AnchorInFrontOfViewer();
+
             if (m_Fade != null) StopCoroutine(m_Fade);
-            m_Fade = StartCoroutine(FadeTo(0f, 1f, fadeInDuration));
+            m_Fade = StartCoroutine(OpenRoutine());
 
             StartVideo();
         }
@@ -104,9 +107,81 @@ namespace Gaze.Core
             if (videoPlayer != null)
                 videoPlayer.Stop();
 
-            float startAlpha = canvasGroup != null ? canvasGroup.alpha : 1f;
             if (m_Fade != null) StopCoroutine(m_Fade);
-            m_Fade = StartCoroutine(FadeTo(startAlpha, 0f, fadeOutDuration, true));
+            m_Fade = StartCoroutine(CloseRoutine());
+        }
+
+        // If a CloseupScreenSettings lives on any parent (e.g. "360 Pisa Day Sources"),
+        // adopt its values so all musicians are tuned from one place. Absent = keep local.
+        void ApplyGlobalSettings()
+        {
+            var s = GetComponentInParent<CloseupScreenSettings>();
+            if (s == null) return;
+
+            fadeInDuration = s.fadeInDuration;
+            fadeOutDuration = s.fadeOutDuration;
+            openDistance = s.openDistance;
+            heightOffset = s.heightOffset;
+            openScale = s.openScale;
+            startScaleFactor = s.startScaleFactor;
+        }
+
+        // Places the window a fixed distance ahead of the camera, upright, facing you.
+        // Position and rotation are set once here and left alone while it's open.
+        void AnchorInFrontOfViewer()
+        {
+            if (screenRoot == null) return;
+            Camera cam = ResolveCamera();
+            if (cam == null) return;
+
+            Vector3 flatFwd = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized;
+            if (flatFwd.sqrMagnitude < 0.0001f) flatFwd = cam.transform.forward;
+
+            screenRoot.transform.position = cam.transform.position + flatFwd * openDistance + Vector3.up * heightOffset;
+            screenRoot.transform.rotation = Quaternion.LookRotation(flatFwd, Vector3.up);
+        }
+
+        // Grows the window from a small scale to full while fading in.
+        IEnumerator OpenRoutine()
+        {
+            Vector3 fromScale = Vector3.one * (openScale * startScaleFactor);
+            Vector3 toScale = Vector3.one * openScale;
+            if (screenRoot != null) screenRoot.transform.localScale = fromScale;
+            if (canvasGroup != null) canvasGroup.alpha = 0f;
+
+            float elapsed = 0f;
+            while (elapsed < fadeInDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / fadeInDuration));
+                if (canvasGroup != null) canvasGroup.alpha = k;
+                if (screenRoot != null) screenRoot.transform.localScale = Vector3.Lerp(fromScale, toScale, k);
+                yield return null;
+            }
+
+            if (canvasGroup != null) canvasGroup.alpha = 1f;
+            if (screenRoot != null) screenRoot.transform.localScale = toScale;
+        }
+
+        // Fades out (and slightly shrinks back) then deactivates.
+        IEnumerator CloseRoutine()
+        {
+            float fromAlpha = canvasGroup != null ? canvasGroup.alpha : 1f;
+            Vector3 fromScale = screenRoot != null ? screenRoot.transform.localScale : Vector3.one * openScale;
+            Vector3 toScale = fromScale * 0.92f;
+
+            float elapsed = 0f;
+            while (elapsed < fadeOutDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(elapsed / fadeOutDuration);
+                if (canvasGroup != null) canvasGroup.alpha = Mathf.Lerp(fromAlpha, 0f, k);
+                if (screenRoot != null) screenRoot.transform.localScale = Vector3.Lerp(fromScale, toScale, k);
+                yield return null;
+            }
+
+            if (canvasGroup != null) canvasGroup.alpha = 0f;
+            if (screenRoot != null) screenRoot.SetActive(false);
         }
 
         void StartVideo()
@@ -165,25 +240,6 @@ namespace Gaze.Core
         void OnVideoError(VideoPlayer vp, string message)
         {
             Debug.LogError($"[CloseupScreen:{name}] VideoPlayer error: {message}");
-        }
-
-        IEnumerator FadeTo(float from, float to, float duration, bool deactivateOnEnd = false)
-        {
-            float elapsed = 0f;
-            if (canvasGroup != null)
-            {
-                canvasGroup.alpha = from;
-                while (elapsed < duration)
-                {
-                    elapsed += Time.unscaledDeltaTime;
-                    canvasGroup.alpha = Mathf.Lerp(from, to, elapsed / duration);
-                    yield return null;
-                }
-                canvasGroup.alpha = to;
-            }
-
-            if (deactivateOnEnd && screenRoot != null)
-                screenRoot.SetActive(false);
         }
 
         Camera ResolveCamera()
