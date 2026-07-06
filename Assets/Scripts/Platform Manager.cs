@@ -37,6 +37,10 @@ public class PlatformManager : MonoBehaviour
     public GameObject logTextPrefab;
     public GameObject logContentRoot;
 
+    [Header("Playback")]
+    [Tooltip("Start the 360 video AND every stem at this time (seconds). 120 = minute 2.")]
+    public float startAtSeconds = 120f;
+
     [Header("Audio Sources")]
     public GameObject audioSourceObject;
 
@@ -50,6 +54,10 @@ public class PlatformManager : MonoBehaviour
     private string relativePath;
     private bool isTablet;
     private Quaternion baseWorldRotation;
+
+    // dspTime captured the moment playback starts; the video's external clock is
+    // startAtSeconds + (dspTime - this), so video and stems share one timeline.
+    private double dspAtPlay;
 
     async void Start()
     {
@@ -121,6 +129,8 @@ public class PlatformManager : MonoBehaviour
         videoPath = "video.mp4";
         videoPath = "file://" + System.IO.Path.Combine(Application.persistentDataPath, videoPath);
 #endif
+
+        EnsureAudioListener();
 
         GameObject instance = null;
 
@@ -295,6 +305,27 @@ public class PlatformManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// The scene's only AudioListener lives on the XR Origin, which this class
+    /// DEACTIVATES on the tablet/editor path - leaving no active listener and
+    /// therefore total silence in the editor. Make sure whichever rig survived
+    /// the switch has one.
+    /// </summary>
+    void EnsureAudioListener()
+    {
+        AudioListener active = FindObjectOfType<AudioListener>();
+        if (active != null && active.isActiveAndEnabled)
+            return;
+
+        Camera cam = isTablet ? standardCamera : proxyCamera;
+        if (cam == null)
+            return;
+
+        if (cam.GetComponent<AudioListener>() == null)
+            cam.gameObject.AddComponent<AudioListener>();
+        LogScreen("[Audio] No active AudioListener found; added one to " + cam.gameObject.name);
+    }
+
     void TogglePicoSpatialAudio(bool enable)
     {
         foreach (var ps in FindObjectsOfType<PXR_Audio_Spatializer_AudioSource>())
@@ -376,14 +407,22 @@ public class PlatformManager : MonoBehaviour
 
     void InitialiseVideo(VideoPlayer source)
     {
+        dspAtPlay = AudioSettings.dspTime;
+
         source.timeReference = UnityEngine.Video.VideoTimeReference.ExternalTime;
-        source.externalReferenceTime = AudioSettings.dspTime;
+        source.externalReferenceTime = startAtSeconds;
+        source.time = startAtSeconds;
         source.Play();
 
-        LogScreen("[Audio] Video PREPARED. audioTrackCount=" + source.audioTrackCount);
+        LogScreen("[Audio] Video PREPARED. audioTrackCount=" + source.audioTrackCount
+                  + " startAt=" + startAtSeconds + "s");
 
         foreach (AudioSource src in audioSources)
         {
+            // Seek each stem to the same start point as the video. Guard against
+            // clips shorter than the offset (time out of range throws).
+            if (src.clip != null && src.clip.length > startAtSeconds)
+                src.time = startAtSeconds;
             src.Play();
         }
     }
@@ -392,7 +431,10 @@ public class PlatformManager : MonoBehaviour
     {
         if (videoPlayer.isPlaying)
         {
-            videoPlayer.externalReferenceTime = AudioSettings.dspTime;
+            // Shared timeline: startAtSeconds plus elapsed dsp time since Play.
+            // (The old absolute dspTime made the video chase "seconds since app
+            // launch", desyncing it from stems that start at 0 or startAtSeconds.)
+            videoPlayer.externalReferenceTime = startAtSeconds + (AudioSettings.dspTime - dspAtPlay);
         }
 
         if (isTablet)

@@ -296,6 +296,7 @@ MonoBehaviour:
   focusedVolume: 1
   duckedVolume: 0.15
   lerpSpeed: 4
+  gainOverrides: []
 --- !u!1 &61906105
 GameObject:
   m_ObjectHideFlags: 0
@@ -726,7 +727,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 0
   Mute: 0
-  Spatialize: 1
+  Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -1460,7 +1461,7 @@ VideoPlayer:
   - 0.72
   m_Url: C:\Users\jruiz\AppData\LocalLow\Salsa Sound\360Concert1\video2.mp4
   m_EnabledAudioTracks: 01
-  m_DirectAudioMutes: 00
+  m_DirectAudioMutes: 01
   m_ControlledAudioTrackCount: 1
   m_PlayOnAwake: 0
   m_SkipOnDrop: 1
@@ -2503,7 +2504,7 @@ VideoPlayer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 610398092}
-  m_Enabled: 1
+  m_Enabled: 0
   m_VideoClip: {fileID: 0}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
@@ -8425,6 +8426,7 @@ MonoBehaviour:
   isLoggingActive: 1
   logTextPrefab: {fileID: 443762254}
   logContentRoot: {fileID: 332699427}
+  startAtSeconds: 120
   audioSourceObject: {fileID: 1021719216}
   usePicoSpatialAudio: 0
 --- !u!1 &1506357091
@@ -10166,7 +10168,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 0
   Mute: 0
-  Spatialize: 1
+  Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -10852,7 +10854,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 0
   Mute: 0
-  Spatialize: 1
+  Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1

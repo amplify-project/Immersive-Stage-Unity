@@ -19,6 +19,15 @@ namespace Gaze.Core
     /// </summary>
     public class MusicianAudioFocus : MonoBehaviour
     {
+        [System.Serializable]
+        public class StemGain
+        {
+            [Tooltip("Must match the AudioSource GameObject's name exactly (e.g. \"Mauro 03\").")]
+            public string musicianName;
+            [Tooltip("Multiplies this stem's volume on top of focusedVolume/duckedVolume. Some stems (e.g. sax) are mixed quieter than the rest; boost here instead of touching the source clip.")]
+            [Range(0.1f, 3f)] public float gain = 1f;
+        }
+
         [Tooltip("Parent GameObject whose children hold the per-musician AudioSources (PlatformManager.audioSourceObject).")]
         [SerializeField] GameObject audioSourceRoot;
 
@@ -31,7 +40,11 @@ namespace Gaze.Core
         [Tooltip("Higher = faster volume transition (exponential smoothing).")]
         [SerializeField] float lerpSpeed = 4f;
 
+        [Tooltip("Per-musician volume boost/cut applied on top of focusedVolume/duckedVolume. Unlisted stems default to gain 1.")]
+        [SerializeField] List<StemGain> gainOverrides = new List<StemGain>();
+
         readonly List<AudioSource> m_Sources = new List<AudioSource>();
+        readonly List<float> m_Gains = new List<float>();
         AudioSource m_Focused;
 
         void OnEnable()
@@ -55,8 +68,20 @@ namespace Gaze.Core
             foreach (Transform child in audioSourceRoot.transform)
             {
                 var src = child.GetComponent<AudioSource>();
-                if (src != null)
-                    m_Sources.Add(src);
+                if (src == null) continue;
+
+                m_Sources.Add(src);
+
+                float gain = 1f;
+                foreach (var g in gainOverrides)
+                {
+                    if (g.musicianName == child.name)
+                    {
+                        gain = g.gain;
+                        break;
+                    }
+                }
+                m_Gains.Add(gain);
             }
         }
 
@@ -80,7 +105,7 @@ namespace Gaze.Core
                 if (src == null) continue;
 
                 // No focus -> everyone back to full. Focus -> only the gazed stem full.
-                float target = !anyFocus || src == m_Focused ? focusedVolume : duckedVolume;
+                float target = (!anyFocus || src == m_Focused ? focusedVolume : duckedVolume) * m_Gains[i];
                 src.volume = Mathf.Lerp(src.volume, target, t);
             }
         }
