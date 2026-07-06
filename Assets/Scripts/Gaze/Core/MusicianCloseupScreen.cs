@@ -33,15 +33,23 @@ namespace Gaze.Core
         [Tooltip("RawImage that receives the VideoPlayer render texture (or placeholder).")]
         [SerializeField] RawImage videoDisplay;
 
-        // Fade / placement / size are tuned globally on the CloseupScreenSettings
-        // component (on "360 Pisa Day Sources"), NOT per musician. These are runtime
-        // fields, not serialized: they are filled from that component in Awake. The
-        // initializers here are only the fallback if no settings component exists.
+        // Fade / growth are tuned globally on the CloseupScreenSettings component,
+        // NOT per musician. These are runtime fields, not serialized: they are
+        // filled from that component in Awake. The initializers here are only the
+        // fallback if no settings component exists.
+        //
+        // PLACEMENT IS NOT SCRIPTED. The screen sits exactly where it is authored
+        // in the editor (screenRoot's transform is the ground truth). Script-driven
+        // "in front of the viewer" placement was removed: the render viewpoint on
+        // device is the Proxy Camera on the arm (y=-9.31), far from the head-tracked
+        // camera, so any camera-relative anchor put the window ~10 m off.
         float fadeInDuration = 0.6f;
         float fadeOutDuration = 0.3f;
-        Vector3 viewOffset = new Vector3(0f, 0f, 3f);
-        float openScale = 0.005f;
         float startScaleFactor = 0.15f;
+
+        // Editor-authored scale of screenRoot, captured in Awake. The open
+        // animation grows toward this, never toward a script-defined size.
+        Vector3 m_AuthoredScale = Vector3.one;
 
         [Header("Video")]
         [SerializeField] VideoPlayer videoPlayer;
@@ -57,7 +65,6 @@ namespace Gaze.Core
         public bool IsShowing { get; private set; }
 
         Coroutine m_Fade;
-        Camera m_Cam;
 
         void Awake()
         {
@@ -72,15 +79,15 @@ namespace Gaze.Core
 
             if (screenRoot != null)
             {
+                m_AuthoredScale = screenRoot.transform.localScale;
                 screenRoot.SetActive(false);
                 if (canvasGroup != null)
                     canvasGroup.alpha = 0f;
             }
         }
 
-        // No LateUpdate billboard on purpose: the window is anchored in front of the
-        // viewer at open time and must NOT follow the head (would be nauseating and
-        // would keep covering whatever you look at next).
+        // No LateUpdate billboard and no anchor-on-open on purpose: the window is
+        // world-fixed exactly where it was authored in the editor.
 
         public void Show()
         {
@@ -89,8 +96,6 @@ namespace Gaze.Core
 
             if (screenRoot != null)
                 screenRoot.SetActive(true);
-
-            AnchorInFrontOfViewer();
 
             if (m_Fade != null) StopCoroutine(m_Fade);
             m_Fade = StartCoroutine(OpenRoutine());
@@ -110,7 +115,7 @@ namespace Gaze.Core
             m_Fade = StartCoroutine(CloseRoutine());
         }
 
-        // If a CloseupScreenSettings lives on any parent (e.g. "360 Pisa Day Sources"),
+        // If a CloseupScreenSettings lives on any parent (e.g. "360 NextStage"),
         // adopt its values so all musicians are tuned from one place. Absent = keep local.
         void ApplyGlobalSettings()
         {
@@ -119,36 +124,14 @@ namespace Gaze.Core
 
             fadeInDuration = s.fadeInDuration;
             fadeOutDuration = s.fadeOutDuration;
-            viewOffset = s.viewOffset;
-            openScale = s.openScale;
             startScaleFactor = s.startScaleFactor;
         }
 
-        // Places the window a fixed distance ahead of the camera, upright, facing you.
-        // Position and rotation are set once here and left alone while it's open.
-        void AnchorInFrontOfViewer()
-        {
-            if (screenRoot == null) return;
-            Camera cam = ResolveCamera();
-            if (cam == null) return;
-
-            Vector3 flatFwd = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized;
-            if (flatFwd.sqrMagnitude < 0.0001f) flatFwd = cam.transform.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, flatFwd);
-
-            // viewOffset is relative to your view: X = right, Y = world-up, Z = forward.
-            screenRoot.transform.position = cam.transform.position
-                + right * viewOffset.x
-                + Vector3.up * viewOffset.y
-                + flatFwd * viewOffset.z;
-            screenRoot.transform.rotation = Quaternion.LookRotation(flatFwd, Vector3.up);
-        }
-
-        // Grows the window from a small scale to full while fading in.
+        // Grows the window from a small scale to its editor-authored scale while fading in.
         IEnumerator OpenRoutine()
         {
-            Vector3 fromScale = Vector3.one * (openScale * startScaleFactor);
-            Vector3 toScale = Vector3.one * openScale;
+            Vector3 fromScale = m_AuthoredScale * startScaleFactor;
+            Vector3 toScale = m_AuthoredScale;
             if (screenRoot != null) screenRoot.transform.localScale = fromScale;
             if (canvasGroup != null) canvasGroup.alpha = 0f;
 
@@ -170,7 +153,7 @@ namespace Gaze.Core
         IEnumerator CloseRoutine()
         {
             float fromAlpha = canvasGroup != null ? canvasGroup.alpha : 1f;
-            Vector3 fromScale = screenRoot != null ? screenRoot.transform.localScale : Vector3.one * openScale;
+            Vector3 fromScale = screenRoot != null ? screenRoot.transform.localScale : m_AuthoredScale;
             Vector3 toScale = fromScale * 0.92f;
 
             float elapsed = 0f;
@@ -245,11 +228,5 @@ namespace Gaze.Core
             Debug.LogError($"[CloseupScreen:{name}] VideoPlayer error: {message}");
         }
 
-        Camera ResolveCamera()
-        {
-            if (m_Cam != null && m_Cam.isActiveAndEnabled) return m_Cam;
-            m_Cam = Camera.main ?? (Camera.allCamerasCount > 0 ? Camera.allCameras[0] : null);
-            return m_Cam;
-        }
     }
 }

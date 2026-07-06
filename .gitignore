@@ -66,3 +66,7 @@ _Recovery/
 # Signing keys must never be committed
 *.keystore
 *.jks
+
+# Local-only audio stems (too big for the repo; pushed to device manually)
+Assets/files/NextStageAudioAssets/
+Assets/files/NextStageAudioAssets.meta

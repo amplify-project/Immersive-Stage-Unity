@@ -19,12 +19,11 @@ namespace Gaze.Core
         [Tooltip("How long the window takes to fade out when gaze leaves.")]
         public float fadeOutDuration = 0.3f;
 
-        [Header("Placement / size")]
-        [Tooltip("Where the window opens, relative to your view (meters): X = right(+)/left(-), Y = up(+)/down(-), Z = forward(+)/back(-).")]
-        public Vector3 viewOffset = new Vector3(0f, 0f, 3f);
-        [Tooltip("Final world scale of the canvas when fully open. Higher = bigger window.")]
-        public float openScale = 0.005f;
-        [Tooltip("Starting scale as a fraction of openScale (window grows from this to full).")]
+        // NOTE: placement and final size are NOT tuned here anymore. Each screen's
+        // position/rotation/scale ground truth is its screenRoot transform as
+        // authored in the editor; the script only fades and grows toward it.
+        [Header("Growth")]
+        [Tooltip("Starting scale as a fraction of the editor-authored scale (window grows from this to full).")]
         [Range(0.05f, 1f)] public float startScaleFactor = 0.15f;
     }
 }

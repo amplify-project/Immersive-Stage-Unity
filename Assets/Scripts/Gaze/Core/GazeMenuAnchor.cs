@@ -16,7 +16,7 @@ namespace Gaze.Core
     /// </summary>
     public class GazeMenuAnchor : MonoBehaviour
     {
-        [Tooltip("Camera that renders the user's view (Proxy Camera in VR). Falls back to Camera.main, then any active camera.")]
+        [Tooltip("Camera that renders the user's view (Proxy Camera in VR - the arm camera IS the render viewpoint on device, so anchor to it, never to the head-tracked camera). Falls back to Camera.main, then any active camera.")]
         [SerializeField] Camera projectionCamera;
 
         [Tooltip("Distance in meters from the camera at which the menu is placed.")]
