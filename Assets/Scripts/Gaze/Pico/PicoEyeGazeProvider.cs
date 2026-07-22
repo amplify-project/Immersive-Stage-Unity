@@ -89,7 +89,10 @@ namespace Gaze.Pico
         {
             var startInfo = new EyeTrackingStartInfo
             {
-                needCalibration = 1,
+                // 0 = needs calibration (per PXR_Type.cs' EyeTrackingStartInfo doc:
+                // 0 = needs, 1 = does not need) - forces PICO's native calibration
+                // flow before eye data starts flowing.
+                needCalibration = 0,
                 mode = EyeTrackingMode.PXR_ETM_BOTH
             };
             int result = PXR_MotionTracking.StartEyeTracking(ref startInfo);

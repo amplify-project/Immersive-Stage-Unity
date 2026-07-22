@@ -69,9 +69,9 @@ namespace Gaze.Pico
                  "to reach the arrow itself (computed from its real angle off head-forward), so " +
                  "moving an arrow always moves its trigger zone with it.")]
         [SerializeField, Range(50f, 500f)] float arrowDistanceLeft  = 180f;
-        [SerializeField, Range(50f, 500f)] float arrowDistanceRight = 300f;
-        [SerializeField, Range(50f, 500f)] float arrowDistanceUp    = 300f;
-        [SerializeField, Range(50f, 500f)] float arrowDistanceDown  = 300f;
+        [SerializeField, Range(50f, 500f)] float arrowDistanceRight = 180f;
+        [SerializeField, Range(50f, 500f)] float arrowDistanceUp    = 180f;
+        [SerializeField, Range(50f, 500f)] float arrowDistanceDown  = 180f;
 
         Color m_BaseColorLeft, m_BaseColorRight, m_BaseColorUp, m_BaseColorDown;
 
@@ -100,7 +100,7 @@ namespace Gaze.Pico
         [SerializeField, Range(5f, 30f)] float zoomActivationAngleDeg = 12f;
 
         [Tooltip("Seconds of continuous gaze on a zoom sphere before it arms and starts changing FOV.")]
-        [SerializeField] float zoomDwellSeconds = 1.5f;
+        [SerializeField] float zoomDwellSeconds = 1f;
 
         [Tooltip("Color tint applied to a zoom sphere while its dwell is armed (>= zoomDwellSeconds).")]
         [SerializeField] Color zoomSphereHighlightColor = new Color(0.62f, 0.2f, 0.86f, 1f);
@@ -125,6 +125,16 @@ namespace Gaze.Pico
         float m_RightClosedTime;
         float m_LeftClosedTime;
 
+        // HUD elements (arrow canvas, zoom spheres) sit at a fixed distance from
+        // proxyCamera, so narrowing its FOV during zoom magnifies them on screen
+        // exactly like it magnifies the video. Counter-scaling by referenceFOV /
+        // currentFOV keeps their apparent screen size constant through a zoom.
+        float m_ReferenceFOV;
+        Transform m_ArrowCanvas;
+        Vector3 m_ArrowCanvasBaseScale;
+        Vector3 m_ZoomSphereRightBaseScale;
+        Vector3 m_ZoomSphereLeftBaseScale;
+
         void Awake()
         {
             // Remember each arrow's authored rest color so SetArrowActive can restore
@@ -133,13 +143,6 @@ namespace Gaze.Pico
             if (arrowRight != null) m_BaseColorRight = arrowRight.color;
             if (arrowUp != null)    m_BaseColorUp    = arrowUp.color;
             if (arrowDown != null)  m_BaseColorDown  = arrowDown.color;
-
-            // Drive each arrow's screen position from the distances above rather than
-            // whatever anchoredPosition is baked into the scene.
-            if (arrowLeft != null)  ((RectTransform)arrowLeft.transform).anchoredPosition  = new Vector2(-arrowDistanceLeft, 0f);
-            if (arrowRight != null) ((RectTransform)arrowRight.transform).anchoredPosition = new Vector2(arrowDistanceRight, 0f);
-            if (arrowUp != null)    ((RectTransform)arrowUp.transform).anchoredPosition    = new Vector2(0f, arrowDistanceUp);
-            if (arrowDown != null)  ((RectTransform)arrowDown.transform).anchoredPosition  = new Vector2(0f, -arrowDistanceDown);
 
             // Remember each zoom sphere's authored rest color, same reasoning as the
             // arrows' base colors above.
@@ -153,6 +156,43 @@ namespace Gaze.Pico
                 var renderer = zoomSphereLeft.GetComponent<Renderer>();
                 if (renderer != null) m_BaseColorZoomLeft = renderer.sharedMaterial.color;
             }
+
+            m_ReferenceFOV = proxyCamera != null ? proxyCamera.fieldOfView : 60f;
+
+            m_ArrowCanvas = arrowLeft  != null ? arrowLeft.transform.parent
+                          : arrowRight != null ? arrowRight.transform.parent
+                          : arrowUp    != null ? arrowUp.transform.parent
+                          : arrowDown  != null ? arrowDown.transform.parent
+                          : null;
+            if (m_ArrowCanvas != null) m_ArrowCanvasBaseScale = m_ArrowCanvas.localScale;
+
+            if (zoomSphereRight != null) m_ZoomSphereRightBaseScale = zoomSphereRight.localScale;
+            if (zoomSphereLeft  != null) m_ZoomSphereLeftBaseScale  = zoomSphereLeft.localScale;
+        }
+
+        // Keeps the arrow canvas and zoom spheres at a constant apparent screen
+        // size regardless of proxyCamera's current FOV (see field comments above).
+        void CompensateHudScaleForZoom()
+        {
+            if (proxyCamera == null || m_ReferenceFOV <= 0f) return;
+
+            float scale = proxyCamera.fieldOfView / m_ReferenceFOV;
+            if (m_ArrowCanvas != null) m_ArrowCanvas.localScale = m_ArrowCanvasBaseScale * scale;
+            if (zoomSphereRight != null) zoomSphereRight.localScale = m_ZoomSphereRightBaseScale * scale;
+            if (zoomSphereLeft  != null) zoomSphereLeft.localScale  = m_ZoomSphereLeftBaseScale  * scale;
+        }
+
+        // Drive each arrow's screen position from the distances above every frame
+        // (not just once in Awake) so dragging the Distance sliders or the Scene-view
+        // gizmo handles (PicoInteractionControllerEditor below) moves the arrows live
+        // while in Play mode - needed to tune arrowDistance* against the editor gaze
+        // preview without a headset.
+        void PositionArrows()
+        {
+            if (arrowLeft != null)  ((RectTransform)arrowLeft.transform).anchoredPosition  = new Vector2(-arrowDistanceLeft, 0f);
+            if (arrowRight != null) ((RectTransform)arrowRight.transform).anchoredPosition = new Vector2(arrowDistanceRight, 0f);
+            if (arrowUp != null)    ((RectTransform)arrowUp.transform).anchoredPosition    = new Vector2(0f, arrowDistanceUp);
+            if (arrowDown != null)  ((RectTransform)arrowDown.transform).anchoredPosition  = new Vector2(0f, -arrowDistanceDown);
         }
 
         // Fixed angular radius around the target's actual world position — unlike
@@ -223,6 +263,9 @@ namespace Gaze.Pico
 
         void Update()
         {
+            PositionArrows();
+            CompensateHudScaleForZoom();
+
             var getInfo = new EyeTrackingDataGetInfo
             {
                 displayTime = 0,
@@ -272,14 +315,39 @@ namespace Gaze.Pico
             upComp    = kb.upArrowKey.isPressed    ? 1f : (kb.downArrowKey.isPressed ? -1f : 0f);
         }
 
-        // Cursor offset from the center of the Game view, normalized to roughly the same -1..1
-        // range as a real gaze component, so moving the mouse continuously sweeps through the
-        // activation zone instead of snapping fully on/off like the keyboard preview.
-        static void GetMouseGazeComponents(out float rightComp, out float upComp)
+        // Cursor offset from the center of the Game view, converted into the SAME
+        // gain-adjusted angular quantity UpdateScrollAndArrows derives from real eye
+        // data - not a raw linear screen fraction. A linear fraction doesn't match
+        // GetDirectionThreshold's angle-based math and ignores the Game view's aspect
+        // ratio, which is why arrows used to need wildly different mouse travel on
+        // each axis to light up (confirmed: left/right needed overshoot past the
+        // arrow, up/down lit at half the distance to it).
+        void GetMouseGazeComponents(out float rightComp, out float upComp)
         {
             Vector2 pos = Mouse.current.position.ReadValue();
-            rightComp = Mathf.Clamp((pos.x - Screen.width  * 0.5f) / (Screen.width  * 0.5f), -1f, 1f);
-            upComp    = Mathf.Clamp((pos.y - Screen.height * 0.5f) / (Screen.height * 0.5f), -1f, 1f);
+            float nx = Mathf.Clamp((pos.x - Screen.width  * 0.5f) / (Screen.width  * 0.5f), -1f, 1f);
+            float ny = Mathf.Clamp((pos.y - Screen.height * 0.5f) / (Screen.height * 0.5f), -1f, 1f);
+
+            Camera cam = proxyCamera != null ? proxyCamera : Camera.main;
+            float aspect = cam != null ? cam.aspect : (Screen.width / (float)Screen.height);
+            float halfFovY = (cam != null ? cam.fieldOfView : 60f) * 0.5f * Mathf.Deg2Rad;
+            float halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * aspect);
+
+            // Synthetic local gaze direction (yaw/pitch off forward), same convention
+            // as UpdateScrollAndArrows' localDir, before gain.
+            float yaw   = nx * halfFovX;
+            float pitch = ny * halfFovY;
+            Vector3 localDir = new Vector3(Mathf.Sin(yaw), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch));
+
+            // Same gain as the real path. No sign negation here (unlike
+            // UpdateScrollAndArrows) - that negation only corrects PICO's mirrored
+            // SDK output; this direction is authored directly so "mouse right" already
+            // means "look right".
+            if (gazeGain != 1f && localDir.z > 0.0001f)
+                localDir = new Vector3(localDir.x * gazeGain, localDir.y * gazeGain, localDir.z).normalized;
+
+            rightComp = localDir.x;
+            upComp    = localDir.y;
         }
 #endif
 
@@ -292,7 +360,8 @@ namespace Gaze.Pico
                 combined.pose.orientation.y,
                -combined.pose.orientation.z,
                -combined.pose.orientation.w);
-            Vector3 localDir = localRot * Vector3.forward;
+            Vector3 rawLocalDir = localRot * Vector3.forward;
+            Vector3 localDir = rawLocalDir;
 
             // Same gain as PicoEyeGazeProvider's reticle, applied in the same local
             // space, so the D-pad needs the same comfortable eye travel as everything
@@ -300,26 +369,43 @@ namespace Gaze.Pico
             if (gazeGain != 1f && localDir.z > 0.0001f)
                 localDir = new Vector3(localDir.x * gazeGain, localDir.y * gazeGain, localDir.z).normalized;
 
-            // PICO's combined eye gaze x/y come out mirrored relative to head-forward
-            // (confirmed on-device: looking right lit the left arrow, looking up lit
-            // down) — negate both so positive means right/up like the rest of the code
-            // below assumes.
-            float rightComp = -localDir.x;
-            float upComp    = -localDir.y;
+            // NOT mirrored: localDir.x/y already read positive-right/positive-up as-is.
+            // A previous version negated both here on the assumption PICO's combined
+            // eye gaze came out mirrored - re-confirmed on-device (2026-07-22) that
+            // WITH that negation, looking right lit the left arrow and looking up lit
+            // the down arrow, i.e. the negation was itself the bug, not a fix for one.
+            float rightComp = localDir.x;
+            float upComp    = localDir.y;
 
-            ApplyGazeComponents(rightComp, upComp);
+            // Zoom spheres take priority over the arrow-pad. They sit off-center
+            // enough that the arrow-pad's dominant-axis pick frequently also crosses
+            // that arrow's own (much smaller) threshold, so instead of chasing exact
+            // angles/positions to avoid every possible overlap, checking the spheres
+            // first and suppressing the arrow-pad entirely while gazing at one
+            // guarantees they never fight over the same glance.
+            Vector3 worldGazeDir = headTransform.rotation * rawLocalDir;
+            bool onZoomSphere = UpdateZoomSpheres(worldGazeDir);
 
-            // Zoom-sphere detection needs the actual world-space gaze ray (not just the
-            // rightComp/upComp screen-space projection used by the arrow-pad), since the
-            // spheres sit off both cardinal axes.
-            Vector3 worldGazeDir = headTransform.rotation * localDir;
-            UpdateZoomSpheres(worldGazeDir);
+            if (onZoomSphere)
+            {
+                SetArrowActive(arrowLeft,  false, m_BaseColorLeft);
+                SetArrowActive(arrowRight, false, m_BaseColorRight);
+                SetArrowActive(arrowUp,    false, m_BaseColorUp);
+                SetArrowActive(arrowDown,  false, m_BaseColorDown);
+            }
+            else
+            {
+                ApplyGazeComponents(rightComp, upComp);
+            }
         }
 
-        void UpdateZoomSpheres(Vector3 worldGazeDir)
+        // Returns true when gaze is on either zoom sphere, so the caller can
+        // suppress the arrow-pad for this frame instead of letting both react to
+        // the same glance.
+        bool UpdateZoomSpheres(Vector3 worldGazeDir)
         {
             Camera cam = proxyCamera != null ? proxyCamera : Camera.main;
-            if (cam == null) return;
+            if (cam == null) return false;
 
             bool onRight = IsGazingAtTarget(zoomSphereRight, worldGazeDir);
             bool onLeft  = IsGazingAtTarget(zoomSphereLeft, worldGazeDir);
@@ -334,6 +420,8 @@ namespace Gaze.Pico
 
             SetSphereActive(zoomSphereRight, m_BaseColorZoomRight, m_ZoomInDwellTimer  >= zoomDwellSeconds);
             SetSphereActive(zoomSphereLeft,  m_BaseColorZoomLeft,  m_ZoomOutDwellTimer >= zoomDwellSeconds);
+
+            return onRight || onLeft;
         }
 
         void SetSphereActive(Transform sphere, Color baseColor, bool active)
@@ -377,9 +465,12 @@ namespace Gaze.Pico
                 // Constant speed while an arrow is held by gaze (no proportional ramp).
                 float step = scrollSpeed * Time.deltaTime;
 
-                // Horizontal scroll (unlimited). Sphere rotation is inverse to the
-                // apparent content motion seen through the fixed camera inside it,
-                // so "look right" must rotate the sphere left and vice versa.
+                // Horizontal scroll (unlimited). Reverted to this sign after the
+                // 2026-07-22 fix above: the "inverted movement" reports that led to
+                // flipping this were made while rightComp/upComp identification was
+                // itself backwards (see above) - the two flips cancelled out and
+                // looked like no change. Re-test this sign fresh now that
+                // identification is fixed, one variable at a time.
                 if (right) sphere.Rotate(Vector3.up, -step, Space.World);
                 if (left)  sphere.Rotate(Vector3.up,  step, Space.World);
 

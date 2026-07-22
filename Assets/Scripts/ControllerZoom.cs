@@ -12,8 +12,8 @@ public class ControllerZoom : MonoBehaviour
     public Camera mainCamera;
     public Camera proxyCamera;
     public float zoomSpeed = 1.0f;
-    public float minFOV = 30f;
-    public float maxFOV = 120f;
+    public float minFOV = 40f;
+    public float maxFOV = 90f;
     public float currZoom = 30f;
 
     [Header("Controller Actions")]
@@ -120,7 +120,13 @@ public class ControllerZoom : MonoBehaviour
 
     void UpdateAudioFocus()
     {
-        float normalized = Mathf.InverseLerp(minFOV, maxFOV, currZoom);
+        // currZoom only moves via the physical controller trigger (OnZoom below) and
+        // no longer reflects the actual zoom level once gaze/wink zoom took over -
+        // that path sets proxyCamera.fieldOfView directly and never touches currZoom,
+        // so ducking was silently keyed off a value that stopped updating. Read the
+        // camera's real FOV instead, whichever system changed it.
+        float currentFOV = proxyCamera.fieldOfView;
+        float normalized = Mathf.InverseLerp(minFOV, maxFOV, currentFOV);
         float sliderValue = Mathf.Lerp(0.1f, 1.0f, normalized);
 
         // Focus cone must match what is ON SCREEN. With followHeadRotation off the
@@ -134,7 +140,7 @@ public class ControllerZoom : MonoBehaviour
             Vector3 toSource = (src.transform.position - listenerPos).normalized;
             float angle = Vector3.Angle(forward, toSource);
 
-            float boost = Mathf.Clamp01((currZoom - angle) / currZoom);
+            float boost = Mathf.Clamp01((currentFOV - angle) / currentFOV);
             src.volume = Mathf.Clamp(1 * boost, sliderValue, 1.0f);
         }
     }

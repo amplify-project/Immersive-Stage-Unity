@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: PICOProjectSetting
   m_EditorClassIdentifier: Unity.XR.PICO::Unity.XR.OpenXR.Features.PICOSupport.PXR_OpenXRProjectSetting
   useContentProtect: 0
-  isEyeTracking: 0
+  isEyeTracking: 1
   MRSafeguard: 0
   isHandTracking: 0
-  isEyeTrackingCalibration: 0
+  isEyeTrackingCalibration: 1
   highFrequencyHand: 0
   displayFrequency: 0
   contentProtectFlags: 0
