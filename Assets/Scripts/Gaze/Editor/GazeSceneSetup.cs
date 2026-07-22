@@ -332,6 +332,13 @@ public static class GazeSceneSetup
             SetObjectField(ctrl, "arrowRight", CreateEdgeArrow(canvasGO.transform, "Arrow_Right", arrowSprite, new Vector2(300f, 0f), 90f));
             SetObjectField(ctrl, "arrowUp",    CreateEdgeArrow(canvasGO.transform, "Arrow_Up",    arrowSprite, new Vector2(0f, 300f), 180f));
             SetObjectField(ctrl, "arrowDown",  CreateEdgeArrow(canvasGO.transform, "Arrow_Down",  arrowSprite, new Vector2(0f, -300f), 0f));
+
+            // Bottom diagonals, closer than the 1.2 m arrow canvas, so they don't
+            // overlap the arrow-pad's activation zones.
+            Transform zoomIn  = CreateZoomSphere(arrowParent, "ZoomSphere_In",  new Vector3(0.25f, -0.35f, 0.8f), 0.05f, Color.white);
+            Transform zoomOut = CreateZoomSphere(arrowParent, "ZoomSphere_Out", new Vector3(-0.25f, -0.35f, 0.8f), 0.05f, Color.white);
+            SetObjectField(ctrl, "zoomSphereRight", zoomIn);
+            SetObjectField(ctrl, "zoomSphereLeft",  zoomOut);
         }
         else
         {
@@ -351,6 +358,23 @@ public static class GazeSceneSetup
         rt.localRotation = Quaternion.Euler(0f, 0f, zRotation);
         img.color = new Color(1f, 1f, 1f, 0.3f);  // minAlpha: always visible even at center
         return img;
+    }
+
+    static Transform CreateZoomSphere(Transform parent, string name, Vector3 localPosition, float scale, Color baseColor)
+    {
+        GameObject sphereGO = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphereGO.name = name;
+        Undo.RegisterCreatedObjectUndo(sphereGO, "Gaze Setup");
+        sphereGO.transform.SetParent(parent, false);
+        sphereGO.transform.localPosition = localPosition;
+        sphereGO.transform.localRotation = Quaternion.identity;
+        sphereGO.transform.localScale = Vector3.one * scale;
+
+        var renderer = sphereGO.GetComponent<Renderer>();
+        var mat = new Material(Shader.Find("Standard")) { color = baseColor };
+        renderer.sharedMaterial = mat;
+
+        return sphereGO.transform;
     }
 
     static Transform FindVideoSphere()
