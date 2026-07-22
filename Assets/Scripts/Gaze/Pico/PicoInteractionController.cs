@@ -87,6 +87,10 @@ namespace Gaze.Pico
 #endif
 
         [Header("Wink Zoom")]
+        [Tooltip("Master switch for the eye-wink zoom gesture. Turn off once the gaze-dwell " +
+                 "zoom spheres are validated on-device; the wink code stays in place, just unused.")]
+        [SerializeField] bool winkZoomEnabled = true;
+
         [SerializeField] float zoomSpeed = 20f;
         [SerializeField] float minFOV = 40f;
         [SerializeField] float maxFOV = 90f;
@@ -329,6 +333,8 @@ namespace Gaze.Pico
 
         void UpdateWinkZoom()
         {
+            if (!winkZoomEnabled) return;
+
             Camera cam = proxyCamera != null ? proxyCamera : Camera.main;
             if (cam == null) return;
 
