@@ -244,16 +244,19 @@ namespace Gaze.Pico
             {
                 GetKeyboardGazeComponents(out float rightComp, out float upComp);
                 ApplyGazeComponents(rightComp, upComp);
+                ResetZoomSphereDwell();
             }
             else if (editorPreviewSource == EditorPreviewSource.Mouse && Mouse.current != null)
             {
                 GetMouseGazeComponents(out float rightComp, out float upComp);
                 ApplyGazeComponents(rightComp, upComp);
+                ResetZoomSphereDwell();
             }
 #endif
             else
             {
                 SetAllArrowAlpha(0f);
+                ResetZoomSphereDwell();
             }
 
             UpdateWinkZoom();
@@ -305,6 +308,48 @@ namespace Gaze.Pico
             float upComp    = -localDir.y;
 
             ApplyGazeComponents(rightComp, upComp);
+
+            // Zoom-sphere detection needs the actual world-space gaze ray (not just the
+            // rightComp/upComp screen-space projection used by the arrow-pad), since the
+            // spheres sit off both cardinal axes.
+            Vector3 worldGazeDir = headTransform.rotation * localDir;
+            UpdateZoomSpheres(worldGazeDir);
+        }
+
+        void UpdateZoomSpheres(Vector3 worldGazeDir)
+        {
+            Camera cam = proxyCamera != null ? proxyCamera : Camera.main;
+            if (cam == null) return;
+
+            bool onRight = IsGazingAtTarget(zoomSphereRight, worldGazeDir);
+            bool onLeft  = IsGazingAtTarget(zoomSphereLeft, worldGazeDir);
+
+            m_ZoomInDwellTimer  = onRight ? m_ZoomInDwellTimer  + Time.deltaTime : 0f;
+            m_ZoomOutDwellTimer = onLeft  ? m_ZoomOutDwellTimer + Time.deltaTime : 0f;
+
+            if (m_ZoomInDwellTimer >= zoomDwellSeconds)
+                cam.fieldOfView = Mathf.Max(minFOV, cam.fieldOfView - zoomSpeed * Time.deltaTime);
+            else if (m_ZoomOutDwellTimer >= zoomDwellSeconds)
+                cam.fieldOfView = Mathf.Min(maxFOV, cam.fieldOfView + zoomSpeed * Time.deltaTime);
+
+            SetSphereActive(zoomSphereRight, m_BaseColorZoomRight, m_ZoomInDwellTimer  >= zoomDwellSeconds);
+            SetSphereActive(zoomSphereLeft,  m_BaseColorZoomLeft,  m_ZoomOutDwellTimer >= zoomDwellSeconds);
+        }
+
+        void SetSphereActive(Transform sphere, Color baseColor, bool active)
+        {
+            if (sphere == null) return;
+            Renderer renderer = sphere.GetComponent<Renderer>();
+            if (renderer == null) return;
+            renderer.material.color = active ? zoomSphereHighlightColor : baseColor;
+        }
+
+        void ResetZoomSphereDwell()
+        {
+            m_ZoomInDwellTimer = 0f;
+            m_ZoomOutDwellTimer = 0f;
+            SetSphereActive(zoomSphereRight, m_BaseColorZoomRight, false);
+            SetSphereActive(zoomSphereLeft,  m_BaseColorZoomLeft,  false);
         }
 
         void ApplyGazeComponents(float rightComp, float upComp)
