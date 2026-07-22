@@ -86,6 +86,29 @@ namespace Gaze.Pico
         [SerializeField] EditorPreviewSource editorPreviewSource = EditorPreviewSource.Mouse;
 #endif
 
+        [Header("Zoom Spheres (gaze-dwell, replaces wink over time)")]
+        [Tooltip("Head-locked sphere that starts continuous zoom-IN once gazed at for zoomDwellSeconds.")]
+        [SerializeField] Transform zoomSphereRight;
+
+        [Tooltip("Head-locked sphere that starts continuous zoom-OUT once gazed at for zoomDwellSeconds.")]
+        [SerializeField] Transform zoomSphereLeft;
+
+        [Tooltip("Angular radius (degrees) around a zoom sphere's actual position within which gaze " +
+                 "counts as \"looking at it\". A fixed radius rather than the arrow-pad's per-arrow " +
+                 "threshold, because a diagonal circular target doesn't fit the left/right/up/down " +
+                 "dominant-axis model.")]
+        [SerializeField, Range(5f, 30f)] float zoomActivationAngleDeg = 12f;
+
+        [Tooltip("Seconds of continuous gaze on a zoom sphere before it arms and starts changing FOV.")]
+        [SerializeField] float zoomDwellSeconds = 1.5f;
+
+        [Tooltip("Color tint applied to a zoom sphere while its dwell is armed (>= zoomDwellSeconds).")]
+        [SerializeField] Color zoomSphereHighlightColor = new Color(0.62f, 0.2f, 0.86f, 1f);
+
+        Color m_BaseColorZoomRight, m_BaseColorZoomLeft;
+        float m_ZoomInDwellTimer;
+        float m_ZoomOutDwellTimer;
+
         [Header("Wink Zoom")]
         [Tooltip("Master switch for the eye-wink zoom gesture. Turn off once the gaze-dwell " +
                  "zoom spheres are validated on-device; the wink code stays in place, just unused.")]
@@ -117,6 +140,29 @@ namespace Gaze.Pico
             if (arrowRight != null) ((RectTransform)arrowRight.transform).anchoredPosition = new Vector2(arrowDistanceRight, 0f);
             if (arrowUp != null)    ((RectTransform)arrowUp.transform).anchoredPosition    = new Vector2(0f, arrowDistanceUp);
             if (arrowDown != null)  ((RectTransform)arrowDown.transform).anchoredPosition  = new Vector2(0f, -arrowDistanceDown);
+
+            // Remember each zoom sphere's authored rest color, same reasoning as the
+            // arrows' base colors above.
+            if (zoomSphereRight != null)
+            {
+                var renderer = zoomSphereRight.GetComponent<Renderer>();
+                if (renderer != null) m_BaseColorZoomRight = renderer.sharedMaterial.color;
+            }
+            if (zoomSphereLeft != null)
+            {
+                var renderer = zoomSphereLeft.GetComponent<Renderer>();
+                if (renderer != null) m_BaseColorZoomLeft = renderer.sharedMaterial.color;
+            }
+        }
+
+        // Fixed angular radius around the target's actual world position — unlike
+        // GetDirectionThreshold (arrow-pad), this isn't picking a dominant axis, just
+        // "is the gaze within N degrees of this point in space".
+        bool IsGazingAtTarget(Transform target, Vector3 worldGazeDir)
+        {
+            if (target == null || headTransform == null) return false;
+            Vector3 toTarget = target.position - headTransform.position;
+            return Vector3.Angle(worldGazeDir, toTarget) <= zoomActivationAngleDeg;
         }
 
 #if UNITY_EDITOR
