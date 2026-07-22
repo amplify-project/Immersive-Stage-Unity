@@ -23,6 +23,9 @@ public class ControllerZoom : MonoBehaviour
     [Header("Arm Control")]
     public Transform armRoot;
     public float maxDistance = 25f;
+
+    [Tooltip("Copy the tracked headset rotation onto the arm (and therefore the Proxy Camera view) every frame. OFF for the eyes-only setup: the view stays fixed and only the gaze arrow-pad rotates the 360 sphere.")]
+    public bool followHeadRotation = false;
     
     [Header("Error Logging")]
     public bool isLoggingActive;
@@ -86,6 +89,9 @@ public class ControllerZoom : MonoBehaviour
 
     void LateUpdate()
     {
+        if (!followHeadRotation)
+            return;
+
         Quaternion L = vrCamera.transform.rotation;
 
         armRoot.transform.rotation = L;
@@ -117,8 +123,11 @@ public class ControllerZoom : MonoBehaviour
         float normalized = Mathf.InverseLerp(minFOV, maxFOV, currZoom);
         float sliderValue = Mathf.Lerp(0.1f, 1.0f, normalized);
 
-        Vector3 listenerPos = vrCamera.transform.position;
-        Vector3 forward = vrCamera.transform.forward;
+        // Focus cone must match what is ON SCREEN. With followHeadRotation off the
+        // Proxy Camera view is fixed while the tracked head still moves, so using
+        // vrCamera here would duck stems based on head motion the user cannot see.
+        Vector3 listenerPos = proxyCamera.transform.position;
+        Vector3 forward = proxyCamera.transform.forward;
 
         foreach (AudioSource src in audioSources)
         {

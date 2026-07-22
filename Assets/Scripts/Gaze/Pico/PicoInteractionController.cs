@@ -282,21 +282,21 @@ namespace Gaze.Pico
                 // Constant speed while an arrow is held by gaze (no proportional ramp).
                 float step = scrollSpeed * Time.deltaTime;
 
-                // Horizontal scroll (unlimited).
-                if (right) sphere.Rotate(Vector3.up,  step, Space.World);
-                if (left)  sphere.Rotate(Vector3.up, -step, Space.World);
+                // Horizontal scroll (unlimited). Sphere rotation is inverse to the
+                // apparent content motion seen through the fixed camera inside it,
+                // so "look right" must rotate the sphere left and vice versa.
+                if (right) sphere.Rotate(Vector3.up, -step, Space.World);
+                if (left)  sphere.Rotate(Vector3.up,  step, Space.World);
 
-                // Vertical scroll with ±45° constraint (up = look up = tilt sphere down).
-                // Keeps the view from tilting past the point where the sphere's pole
-                // distortion becomes disorienting for a user who can't correct with head movement.
-                if ((up || down) && headTransform != null)
+                // Vertical scroll with ±90° constraint (up = look up = content should pan up).
+                if (up || down)
                 {
                     float currentVertical = sphere.eulerAngles.x;
                     if (currentVertical > 180f) currentVertical -= 360f;
-                    float dir = up ? -step : step;
-                    float newVertical = Mathf.Clamp(currentVertical + dir, -45f, 45f);
+                    float dir = up ? step : -step;
+                    float newVertical = Mathf.Clamp(currentVertical + dir, -90f, 90f);
                     float clampedDelta = newVertical - currentVertical;
-                    sphere.Rotate(headTransform.right, clampedDelta, Space.World);
+                    sphere.Rotate(Vector3.right, clampedDelta, Space.World);
                 }
             }
 

@@ -1,0 +1,36 @@
+# Unity generated
+Library/
+Temp/
+Obj/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Unity build output
+Builds/
+Build/
+*_BurstDebugInformation_DoNotShip/
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+
+# IDE / generated project files
+.vs/
+.vsconfig
+*.csproj
+*.slnx
+*.sln
+*.userprefs
+*.pidb
+*.suo
+*.user
+UpgradeLog.htm
+
+# Backups and scratch
+Backup/
+Assets/_Recovery/
+
+# Local audio stems (large, kept out of git per prior agreement)
+Assets/files/NextStageAudioAssets/
+
+# Secrets / signing
+*.keystore
