@@ -1,4 +1,4 @@
-﻿# AMPLIFY 360 Immersive Experience
+# AMPLIFY 360 Immersive Experience
 
 **A Unity XR application for immersive 360-video concert experiences** — a
 head-tracked sphere video player with gaze-driven musician close-ups and
@@ -97,7 +97,7 @@ GPLv3. See [`LICENSE`](LICENSE).
 ## Contributions
 
 - Joseba Ruiz (Vicomtech): Core
-- Iñigo Tamayo (Vicomtech): Core
+- Andres Santos Torres (Vicomtech): Core
 
 ## Funding
 
