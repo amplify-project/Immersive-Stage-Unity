@@ -97,8 +97,9 @@ GPLv3. See [`LICENSE`](LICENSE).
 
 ## Contributions
 
-- Joseba Ruiz (Vicomtech): Core
-- Andres Santos Torres (Vicomtech): Core
+- Joseba Ruiz (Vicomtech)
+- Andres Santos Torres (Vicomtech)
+- Tristan Merigny
 
 ## Funding
 
