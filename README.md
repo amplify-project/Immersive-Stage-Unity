@@ -1,4 +1,4 @@
-# Immersive-Stage-Unity
+# Immersive Stage Unity
 
 **A Unity XR application for attending a concert from inside it** — a
 360° video-on-demand player where eye gaze steers what you hear and see,
