@@ -99,7 +99,7 @@ GPLv3. See [`LICENSE`](LICENSE).
 
 - Joseba Ruiz (Vicomtech)
 - Andres Santos Torres (Vicomtech)
-- Tristan Merigny
+- Tristan Merigny (Salsa Sound)
 
 ## Funding
 
