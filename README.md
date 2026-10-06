@@ -97,8 +97,8 @@ GPLv3. See [`LICENSE`](LICENSE).
 
 ## Contributions
 
-- Joseba Ruiz (Vicomtech): Core
-- Andres Santos Torres (Vicomtech): Core
+- Joseba Ruiz (Vicomtech)
+`n- Tristan Merigny (Salsa Sound)
 
 ## Funding
 
